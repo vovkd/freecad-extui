@@ -641,10 +641,26 @@ def setup_extui():
     
     def build_groups_onload(storage, menu_tools):
         
-        def get_item_by_text(tree, text):
+        def search(text, item, column, depth=1):
+            if not item:
+                return
+        
+            print('item 1: ', item)
+            if item.text(column) == text:
+                return item
+            
+            elif depth > 1:
+                for idx in range(item.childCount()):
+                    res = search(text, item.child(idx), column)
+                    if res:
+                        print('item 3', item)
+                        return res
+
+        def get_item_by_text(tree, text, column,  depth=1):
             for idx in range(tree.topLevelItemCount()):
                 item = tree.topLevelItem(idx)
-                if item.text(1) == text:
+                item = search(text, item, column, depth=depth)
+                if item: 
                     return item
 
         tools = storage.tools.get(storage.active_wb, {})
@@ -652,14 +668,15 @@ def setup_extui():
         for action_name, tool_data in tools.items():
             parent = None
             if 'children' in tool_data:
-                parent = get_item_by_text(menu_tools, tool_data['pub_name'])
+                parent = get_item_by_text(menu_tools, tool_data['pub_name'], 1)
+
                 if parent:
                     for action_name in tool_data['children']:
                         child_data = tools[action_name]
-                        child = get_item_by_text(menu_tools, child_data['pub_name'])
+                        child = get_item_by_text(menu_tools, child_data['pub_name'], 1, 2)
                         menu_tools.takeTopLevelItem(menu_tools.indexOfTopLevelItem(child))
                         parent.addChild(child)
-                        parent.setExpanded(True)
+                    parent.setExpanded(True)
         menu_tools.blockSignals(False)
 
 
@@ -697,10 +714,11 @@ def setup_extui():
             workbench = self._storage.active_wb
             action_name = value['action_name']
             print(action_name)
-            if (workbench in tools) and (action_name not in tools[workbench]):
-            #     tools[workbench][action_name] = value
-            #     self._storage.tools = tools.copy()
-            # else:
+            if workbench in tools:
+                if action_name not in tools[workbench]:
+                    tools[workbench][action_name] = value
+                    self._storage.tools = tools.copy()
+            else:
                 tools[workbench] = {action_name: value}
                 self._storage.tools = tools.copy()
 

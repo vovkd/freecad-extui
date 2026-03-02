@@ -50,6 +50,7 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
                 print('Invalid drop - rejected')
                 event.ignore()
                 return
+
             self.set_parent(dragged_items, target_item)
             event.accept()
             
