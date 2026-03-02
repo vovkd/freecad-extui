@@ -1,3 +1,6 @@
+from json import tool
+
+
 def setup_extui():
     import os
     import sys
@@ -88,7 +91,6 @@ def setup_extui():
             general_gb.setLayout(general_gb_lyt)
             general_gb.setMinimumWidth(300)
             
-
             # Shape settings group
 
             shape_lbl = QtGui.QLabel('Shape')
@@ -323,8 +325,9 @@ def setup_extui():
             self.layout.addWidget(left_panel_wd, alignment=QtCore.Qt.AlignTop)
             populate_tools_list(self._storage, self._tool_list_wdg)
             workbench = self._storage.active_wb or DEFAULT_WORKBENCH
-            check_tools(self._storage, workbench, self._tool_list_wdg, self.menu_tools_wd)
             self.hide()
+            check_tools(self._storage, workbench, self._tool_list_wdg, self.menu_tools_wd)
+            build_groups_onload(self._storage, self.menu_tools_wd)
         
         def _build_tool_list_widget(self):
             tool_list_wdg = QtGui.QTableWidget()
@@ -362,6 +365,7 @@ def setup_extui():
             menu_tools_wd.setMinimumWidth(380)
             menu_tools_wd.setRootIsDecorated(False)
             menu_tools_wd.setItemsExpandable(False)
+            menu_tools_wd.on_parent_changed.connect(lambda items, parent: update_children(self._storage, items, parent))
             
             menu_tools_wd.setSelectionBehavior(QtGui.QTreeWidget.SelectRows)
             menu_tools_wd.setSelectionMode(QtGui.QTreeWidget.ExtendedSelection)
@@ -459,32 +463,11 @@ def setup_extui():
             self.action_name = f'{self.name}Menu'
             self.window = Gui.getMainWindow()
             self._items = items 
-            self._init_menu()
+            self._build_menu(self.name)
             
-        def _trigger_action(self, callback):
+        def _trigger_action(self, callback: callable):
             '''Action handler.'''
             callback()
-
-        def _init_menu(self):
-            '''
-            Actual Menu constructor.
-            
-            Builds Menu and preliminary checks.
-            '''
-
-            # if self.window.property('eventLoop'):
-            #     is_started = False
-            #     try:
-            #         self.window.mainWindowClosed
-            #         self.window.workbenchActivated
-            #         is_started = True
-            #     except AttributeError:
-            #         pass
-            #     if is_started:
-            #         self.timer.stop()
-            #         self.timer.deleteLater()
-            #         self._build_menu(self.name)
-            self._build_menu(self.name)
 
         def _build_action(self, name, callback):
             '''
@@ -620,7 +603,7 @@ def setup_extui():
             # Column 1: tool icon
             tool = tools[tool_name]
             tool_item = QtWidgets.QTableWidgetItem(tool.text().replace('&', ''))
-            tool_item.setData(QtCore.Qt.UserRole, {'tool_name': tool_name})
+            tool_item.setData(QtCore.Qt.UserRole, {'action_name': tool_name})
             tool_item.setIcon(tool.icon())
             tool_item.setFlags(QtCore.Qt.ItemIsEnabled)
             tool_item.setToolTip(tool.toolTip())
@@ -644,7 +627,7 @@ def setup_extui():
         menu_tools.blockSignals(True)
         menu_tools.clear()
         tool_list.blockSignals(False)
-        storage.checked_tools = []
+        # storage.checked_tools = []
 
         for tool in storage.tools.get(workbench, []):
             name = storage.tools[workbench][tool]['pub_name']
@@ -654,17 +637,70 @@ def setup_extui():
                 row = item.row()
                 checkbox = tool_list.item(row, 0)
                 checkbox.setCheckState(QtCore.Qt.Checked)
+    
+    
+    def build_groups_onload(storage, menu_tools):
+        
+        def get_item_by_text(tree, text):
+            for idx in range(tree.topLevelItemCount()):
+                item = tree.topLevelItem(idx)
+                if item.text(1) == text:
+                    return item
+
+        tools = storage.tools.get(storage.active_wb, {})
+        menu_tools.blockSignals(True)
+        for action_name, tool_data in tools.items():
+            parent = None
+            if 'children' in tool_data:
+                parent = get_item_by_text(menu_tools, tool_data['pub_name'])
+                if parent:
+                    for action_name in tool_data['children']:
+                        child_data = tools[action_name]
+                        child = get_item_by_text(menu_tools, child_data['pub_name'])
+                        menu_tools.takeTopLevelItem(menu_tools.indexOfTopLevelItem(child))
+                        parent.addChild(child)
+                        parent.setExpanded(True)
+        menu_tools.blockSignals(False)
 
 
+    def update_children(
+        storage,
+        items: tuple[tuple[QtWidgets.QTreeWidgetItem, QtWidgets.QTreeWidgetItem]],
+        parent: QtWidgets.QTreeWidgetItem,
+    ) -> None:
+        print('Catched "parent changed" signal.')
+        tools = storage.tools.copy()
+        workbench = storage.active_wb
+        parent_action_name = parent.data(1, QtCore.Qt.UserRole).get('action_name')
+        parent_data = tools[workbench].get(parent_action_name, None)
+
+        for item, old_parent in items:
+            item_action_name = item.data(1, QtCore.Qt.UserRole).get('action_name')
+            if parent_data:
+                if 'children' not in parent_data:
+                    parent_data['children'] = []
+                parent_data['children'].append(item_action_name)
+            if old_parent:
+                old_action_name = old_parent.data(1, QtCore.Qt.UserRole).get('action_name')
+                try:
+                    tools[workbench][old_action_name]['children'].remove(item_action_name)    
+                except ValueError:
+                    print(f'No <{item_action_name}> in <{old_action_name}> children list.')
+        tools[workbench][parent_action_name] = parent_data
+        storage.tools = tools 
+
+    
     def onchek_tool_list(self, item, menu_tools):
         def push_value(self, value):
             tools = self._storage.tools
+            print(tools)
             workbench = self._storage.active_wb
             action_name = value['action_name']
-            if workbench in tools:
-                tools[workbench][action_name] = value
-                self._storage.tools = tools.copy()
-            else:
+            print(action_name)
+            if (workbench in tools) and (action_name not in tools[workbench]):
+            #     tools[workbench][action_name] = value
+            #     self._storage.tools = tools.copy()
+            # else:
                 tools[workbench] = {action_name: value}
                 self._storage.tools = tools.copy()
 
@@ -699,13 +735,13 @@ def setup_extui():
                         if column_idx == 1:
                             item_ = tools_table.item(event_row, 1)
                             pub_name = item_.text()
-                            action_name = item_.data(QtCore.Qt.UserRole).get('tool_name')
+                            action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
                             push_value(self, {'pub_name': pub_name, 'action_name': action_name})
                             icon = row_item.icon()
                             if icon:
                                 tool_item.setIcon(column_idx, icon)
-                            item.setData(QtCore.Qt.UserRole, {'tool_name': action_name})
-                            tool_item.setData(column_idx, QtCore.Qt.UserRole, {'tool_name': action_name})
+                            item.setData(QtCore.Qt.UserRole, {'action_name': action_name})
+                            tool_item.setData(column_idx, QtCore.Qt.UserRole, {'action_name': action_name})
                             
                     tool_item.setText(column_idx, value)
                 menu_tools.insertTopLevelItem(row_num, tool_item)
@@ -720,7 +756,7 @@ def setup_extui():
                         item_ = menu_tools.topLevelItem(row)
                         data = item_.data(1, QtCore.Qt.UserRole)
                         if data:
-                            action = item_.data(1, QtCore.Qt.UserRole).get('tool_name')
+                            action = item_.data(1, QtCore.Qt.UserRole).get('action_name')
                             rm_value(self, action)
                         break
                 for row in to_delete:
@@ -750,7 +786,7 @@ def setup_extui():
                 timer.deleteLater()
                 App.Console.PrintMessage("Stopped timer. \n")
                 context_toolbar_settings = SettingsWindow()
-                menu = Menu(name='Accessories2', items={'Ext UI': context_toolbar_settings.show})
+                menu = Menu(name='Ext UI', items={'Ext UI': context_toolbar_settings.show})
 
     window = Gui.getMainWindow()
     timer = QtCore.QTimer()

@@ -1,4 +1,4 @@
-from PySide import QtWidgets
+from PySide import QtWidgets, QtCore
 
 
 class DnDTreeWidget(QtWidgets.QTreeWidget):
@@ -7,6 +7,8 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
 
     Allows dropping items as childs of another items.
     '''
+    
+    on_parent_changed = QtCore.Signal(object, object)  # obj list, new parent
     
     def __init__(self):
         super().__init__()
@@ -19,14 +21,14 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        
-        # Use InternalMove as base, we'll customize behavior
         self.setDragDropMode(QtWidgets.QTreeWidget.InternalMove)
         
     def dropEvent(self, event):
         '''
         Custom drop event handler
         Makes dropped items become children of the target item
+        
+        Original QTreeWidget method. So method naming originates from Qt.
         '''
         
         drop_pos = event.pos()
@@ -39,11 +41,12 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
             return
         
         print(f'Dragged items: {[item.text(0) for item in dragged_items]}')
-        
+
+        items = [(item, item.parent()) for item in dragged_items]
         # CASE 1: Dropping on a valid target item
         if target_item and drop_indicator == QtWidgets.QTreeWidget.OnItem:
             # Validate drop
-            if not self.isValidDrop(dragged_items, target_item):
+            if not self.is_drop_valid(dragged_items, target_item):
                 print('Invalid drop - rejected')
                 event.ignore()
                 return
@@ -53,17 +56,30 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
         # CASE 2: Dropping between items (above/below) or on empty area
         else:
             super().dropEvent(event)
-    
-    def isValidDrop(self, dragged_items, target_item):
+            for item in dragged_items:
+                item.setExpanded(True)
+        self.on_parent_changed.emit(items, target_item)
+
+
+    def is_drop_valid(self, dragged_items, target_item):
         '''Check if drop is valid'''
-        
-        # Can't drop on itself
+
+        # Can't drop on level > 0
+        if self.get_item_level(target_item) >= 1:
+            return False
+    
         for item in dragged_items:
-            if item == target_item:
+            
+            # can't drop if any dragged item has descendants
+            if item.childCount():
+                return False
+            
+            # Can't drop on itself
+            elif item == target_item:
                 return False
             
             # Can't drop a parent onto its child
-            if self.is_descendant(item, target_item):
+            elif self.is_descendant(item, target_item):
                 return False
         
         return True
@@ -79,9 +95,9 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
     def set_parent(self, items, new_parent):
         '''
         Make the dropped items become children of new_parent
-        
         This is the key function that does the actual reparenting
         '''
+
         print(f'Making {len(items)} items children of "{new_parent.text(0)}"')
         
         self.blockSignals(True)
@@ -98,3 +114,22 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
             print(f"  Moved '{item.text(0)}' from {old_parent_text} to '{new_parent.text(0)}'")
         new_parent.setExpanded(True)
         self.blockSignals(False)
+    
+    def get_item_level(self, item):
+        '''Return the depth level of a tree item (0 for top-level)'''
+    
+        level = 0
+        parent = item.parent()
+        while parent is not None:
+            level += 1
+            parent = parent.parent()
+        return level
+    
+    def get_item_children(self, item):
+        '''Return list of all direct child items'''
+
+        children = []
+        for i in range(item.childCount()):
+            children.append(item.child(i))
+
+        return children        
