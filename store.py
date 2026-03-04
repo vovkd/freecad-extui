@@ -87,6 +87,7 @@ class JsonField(StringField):
 
 class Storage:
     shape = StringField(default='line')
+    overlay_panel_on = BooleanField(default=False)
     tools = JsonField(default='{}')
 
     def __init__(self, storage):

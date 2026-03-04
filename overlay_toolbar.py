@@ -190,7 +190,7 @@ class ResizeFilter(QtCore.QObject):
 class OverlayPanel(QtWidgets.QWidget):
     def __init__(
         self,
-        tools: tuple =tools,
+        tools: tuple = tools,
         parent=None,
         style: dict | None = None, 
     ) -> None:
@@ -208,7 +208,7 @@ class OverlayPanel(QtWidgets.QWidget):
         )
         self.setWindowFlags(flags)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
-        self._get_3dview_widget()
+        self._view_widget = self._get_3dview_widget()
         
         self._overlay = QtWidgets.QFrame(self._view_widget)
         self.layouts = {
@@ -362,9 +362,7 @@ class OverlayPanel(QtWidgets.QWidget):
             Console.PrintError("Active subwindow is not a 3D view")
             return
         
-        self._view_widget = active_sub.widget()
-        return self._view_widget
-
+        return active_sub.widget()
 
     def _build_overlay(self):
         if self._view_widget is None:
@@ -391,6 +389,8 @@ class OverlayPanel(QtWidgets.QWidget):
         self._overlay.hide()
     
     def destroy(self):
+        self._view_widget.removeEventFilter(self._resize_filter)
+        self._resize_filter.deleteLater()
         self._overlay.close()
         self._overlay.deleteLater()
         

@@ -1,9 +1,7 @@
-from json import tool
-
-
 def setup_extui():
     import os
     import sys
+    import uuid
     import inspect
     from dataclasses import dataclass
 
@@ -60,20 +58,24 @@ def setup_extui():
         #     for doc in App.listDocuments().values():
         #         self.attach_observer(doc)            
 
-        # def slotActivateDocument(self, doc):
-        #     '''Document opened/activated'''
-        #     print(f'Document activated: {doc.Name}')
+        def slotActivateDocument(self, doc):
+            '''Document opened/activated'''
+            print(f'Document activated: {doc.Name}')
+            if self.is_created:
+                self.on_document_load(doc)
 
             
         def slotCreatedDocument(self, doc):
             print(f'Document created: {doc.Name}')
-            self.on_document_load(doc)
+            doc.addProperty("App::PropertyString", "uid", "CustomAttributes")
+            setattr(doc, 'uid', str(uuid.uuid4()))
+            self.is_created = True
         
         # def slotDeletedDocument(self, doc):
         #     print(f'Document about to close: {doc.Name}')
         
-        # def slotRestoredDocument(self, doc):
-        #     print(f'Document to be opened: {doc.Name}')
+        def slotRestoredDocument(self, doc):
+            print(f'Document to be opened: {doc.Name}')
 
         # def attach_observer(self, doc):
         #     print(f'Attached observer to document: {doc.Name}')
@@ -93,15 +95,16 @@ def setup_extui():
 
 
     class SettingsWindow(QtWidgets.QDialog):
-        def __init__(self):
+        def __init__(self, storage):
             super().__init__(Gui.getMainWindow())
             self.setWindowTitle('Настройки ExUI.')
             
             # Загружаем сохраненные параметры из FreeCAD
             self.setMinimumSize(800, 600)
             self.setModal(True)
-            config = App.ParamGet(PARAM_PATH)
-            self._storage = Storage(config)
+            # config = App.ParamGet(PARAM_PATH)
+            # self._storage = Storage(config)
+            self._storage = storage
             self._storage.active_wb = Workbenches.PD
             self._storage.workbenches = list_workbenches()
             self.init_ui()
@@ -307,17 +310,34 @@ def setup_extui():
             position_gb_lyt.addLayout(position_controls_lyt)
             position_gb.setLayout(position_gb_lyt)
             
+            # Enable panel
+            show_panel_wdg = QtGui.QCheckBox('Show panel')
+            show_panel_wdg.setChecked(self._storage.overlay_panel_on)
+            show_panel_wdg.setTristate(False)
+            # show_panel_wdg.stateChanged.connect(on_checkbox_changed)
+            
+            # TODO: rewrite using signals
+            def toggle_show_panel(checked):
+                print('checked: ', checked)
+                is_panel_on = self._storage.overlay_panel_on = checked
+                if not is_panel_on:
+                    destroy_overlay_panel(object)
+                elif is_panel_on:
+                    setup_overlay_panel(None)
+            show_panel_wdg.toggled.connect(toggle_show_panel)
+
             # General Tab content
             general_tab_content_wdg = QtGui.QWidget()
             general_tab_content_lyt = QtGui.QVBoxLayout()
             general_tab_content_lyt.addWidget(shape_gb, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addWidget(trigger_gb, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addWidget(position_gb, alignment=QtCore.Qt.AlignTop)
+            general_tab_content_lyt.addWidget(show_panel_wdg, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addStretch(1)
             general_tab_content_lyt.setContentsMargins(0, 0, 0, 0)
             general_tab_content_wdg.setMaximumWidth(350)
             general_tab_content_wdg.setLayout(general_tab_content_lyt)
-            
+
             # Tools Tab Content
             
             search_input_wdg = QtGui.QLineEdit()
@@ -837,6 +857,7 @@ def setup_extui():
         
 
     def create_menu(window, timer):
+        window = Gui.getMainWindow()
         App.Console.PrintMessage("Try create menu. \n")
         if window.property("eventLoop"):
             started = False
@@ -853,25 +874,55 @@ def setup_extui():
                 timer.stop()
                 timer.deleteLater()
                 App.Console.PrintMessage("Stopped timer. \n")
-                context_toolbar_settings = SettingsWindow()
+                config = App.ParamGet(PARAM_PATH)
+                storage = Storage(config)
+                context_toolbar_settings = SettingsWindow(storage)
                 menu = Menu(name='Ext UI', items={'Overlay panel': context_toolbar_settings.show})
+                
+                if not hasattr(window, 'extui'):
+                    setattr(window, 'extui', dict())
+                if not ('menu' in window.extui):
+                    window.extui['menu'] = menu
+                    window.extui['panels'] = {}
+                    window.extui['storage'] = storage
+
+
+    def setup_overlay_panel(doc):
+        if doc is None:
+            doc = App.ActiveDocument
+        window = Gui.getMainWindow()
+        storage = window.extui['storage']
+        if storage.overlay_panel_on:
+            doc_panels = window.extui['panels'].get(doc.uid, {})
+            if not isinstance(doc_panels.get('overlay'), OverlayPanel):
+                overlay_panel = OverlayPanel(parent=window)
+                window.extui['panels'].update({doc.uid: {'overlay':  overlay_panel}})
+                overlay_panel.show()
+
+
+    def destroy_overlay_panel(doc):
+        app = Gui.getMainWindow()
+        panels = app.extui['panels'].items()
+        for key, item in panels:
+            panel = item.get('overlay')
+            if panel:
+                app.extui['panels'][key].pop('overlay')
+                panel.destroy()
 
     window = Gui.getMainWindow()
-    timer = QtCore.QTimer()
-    timer.timeout.connect(lambda: create_menu(window, timer))
-    timer.start(100)
-    
-    def setup_overlay_panel(doc):
-        app = Gui.getMainWindow()
-        if hasattr(app, 'extui'):
-            workbench = Gui.activeWorkbench().name()
-            if workbench in app.extui:
-                return
-        overlay_panel = OverlayPanel(parent=app)
-        overlay_panel.show()
-        app.extui[workbench] = overlay_panel
+    startup_timer = QtCore.QTimer()
+    startup_timer.timeout.connect(lambda: create_menu(window, startup_timer))
+    startup_timer.start(100)
 
-    doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel, ))
-    
+    # TODO: rewrite using signals
+    doc_observer = None
+    observer_setup_timer = QtCore.QTimer()
+    def check_menu(window, timer):
+        if hasattr(window, 'extui') and ('menu' in window.extui):
+            doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel, ))
+            timer.stop()
+            timer.deleteLater()
+    observer_setup_timer.timeout.connect(lambda: check_menu(window, observer_setup_timer))
+    observer_setup_timer.start(100)
 
 setup_extui()
