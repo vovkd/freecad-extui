@@ -13,6 +13,8 @@ def setup_extui():
 
     import store
     import widgets
+    
+    from overlay_toolbar import OverlayPanel
 
     module_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     if module_dir not in sys.path:
@@ -43,6 +45,53 @@ def setup_extui():
         FreeCAD: str = 'Std'
 
 
+    class DocumentEventsHandler:
+        
+        def __init__(self, app, handlers = []):
+            self.app = app
+            self.observer = None
+            self.setup_observer()
+            self.handlers = handlers
+        
+        def setup_observer(self):
+            self.observer = App.addDocumentObserver(self)
+        #     # self.gui_observer = Gui.addDocumentObserver(self)
+
+        #     for doc in App.listDocuments().values():
+        #         self.attach_observer(doc)            
+
+        # def slotActivateDocument(self, doc):
+        #     '''Document opened/activated'''
+        #     print(f'Document activated: {doc.Name}')
+
+            
+        def slotCreatedDocument(self, doc):
+            print(f'Document created: {doc.Name}')
+            self.on_document_load(doc)
+        
+        # def slotDeletedDocument(self, doc):
+        #     print(f'Document about to close: {doc.Name}')
+        
+        # def slotRestoredDocument(self, doc):
+        #     print(f'Document to be opened: {doc.Name}')
+
+        # def attach_observer(self, doc):
+        #     print(f'Attached observer to document: {doc.Name}')
+        #     doc.signalRestored.connect(self.on_document_restored)
+            
+        def on_document_load(self, doc):
+            print(f'Call handlers: {self.handlers}')
+            for handler in self.handlers:
+                handler(doc)
+
+
+        def __del__(self):
+            try:
+                App.removeDocumentObserver(self)
+            except:
+                pass
+
+
     class SettingsWindow(QtWidgets.QDialog):
         def __init__(self):
             super().__init__(Gui.getMainWindow())
@@ -70,6 +119,7 @@ def setup_extui():
                 storage.active_wb = storage.workbenches.get(widget.currentText(), DEFAULT_WORKBENCH)
                 populate_tools_list(storage, self._tool_list_wdg)
                 check_tools(self._storage, storage.active_wb, self._tool_list_wdg, self.menu_tools_wd)
+                build_groups_onload(self._storage, self.menu_tools_wd)
 
             select_wb_wdg = QtGui.QComboBox()
             select_wb_wdg.setMaxVisibleItems(10)
@@ -804,11 +854,24 @@ def setup_extui():
                 timer.deleteLater()
                 App.Console.PrintMessage("Stopped timer. \n")
                 context_toolbar_settings = SettingsWindow()
-                menu = Menu(name='Ext UI', items={'Ext UI': context_toolbar_settings.show})
+                menu = Menu(name='Ext UI', items={'Overlay panel': context_toolbar_settings.show})
 
     window = Gui.getMainWindow()
     timer = QtCore.QTimer()
     timer.timeout.connect(lambda: create_menu(window, timer))
     timer.start(100)
+    
+    def setup_overlay_panel(doc):
+        app = Gui.getMainWindow()
+        if hasattr(app, 'extui'):
+            workbench = Gui.activeWorkbench().name()
+            if workbench in app.extui:
+                return
+        overlay_panel = OverlayPanel(parent=app)
+        overlay_panel.show()
+        app.extui[workbench] = overlay_panel
+
+    doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel, ))
+    
 
 setup_extui()

@@ -406,7 +406,9 @@ def overlay_destroy():
         if isinstance(child, OverlayPanel):
             child.destroy()
 
-overlay_destroy()
-app = Gui.getMainWindow()
-overlay = OverlayPanel(parent=app)
-overlay.show()
+if __name__ == '__main__':
+
+    overlay_destroy()
+    app = Gui.getMainWindow()
+    overlay = OverlayPanel(parent=app)
+    overlay.show()

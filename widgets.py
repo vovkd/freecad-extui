@@ -61,7 +61,6 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
                 item.setExpanded(True)
         self.on_parent_changed.emit(items, target_item)
 
-
     def is_drop_valid(self, dragged_items, target_item):
         '''Check if drop is valid'''
 
