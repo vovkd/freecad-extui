@@ -3,12 +3,16 @@ def setup_extui():
     import sys
     import uuid
     import inspect
+    import traceback
     from dataclasses import dataclass
 
     import FreeCAD as App
     import FreeCADGui as Gui
     from FreeCAD import Console, Units
 
+    from PySide import QtWidgets, QtCore, QtGui
+
+    import utils
     import store
     import widgets
     
@@ -17,14 +21,13 @@ def setup_extui():
     module_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     if module_dir not in sys.path:
         sys.path.insert(0, module_dir)
+        sys.path.insert(0, utils.__file__)
         sys.path.insert(0, store.__file__)
         sys.path.insert(0, widgets.__file__)
 
     from store import Storage
     from widgets import DnDTreeWidget
-
-    from pivy import coin
-    from PySide import QtWidgets, QtCore, QtGui
+    from utils import get_tools_from_settings
 
     PARAM_PATH = "User parameter:BaseApp/OverlayToolbar"
     DEFAULT_WORKBENCH = 'PartDesignWorkbench'
@@ -775,15 +778,14 @@ def setup_extui():
                     print(f'No <{item_action_name}> in <{old_action_name}> children list.')
         tools[workbench][parent_action_name] = parent_data
         storage.tools = tools 
+        rebuild_panels()
 
     
     def onchek_tool_list(self, item, menu_tools):
         def push_value(self, value):
             tools = self._storage.tools
-            print(tools)
             workbench = self._storage.active_wb
             action_name = value['action_name']
-            print(action_name)
             if workbench in tools:
                 if action_name not in tools[workbench]:
                     tools[workbench][action_name] = value
@@ -824,7 +826,13 @@ def setup_extui():
                             item_ = tools_table.item(event_row, 1)
                             pub_name = item_.text()
                             action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
-                            push_value(self, {'pub_name': pub_name, 'action_name': action_name})
+                            push_value(
+                                self, 
+                                {
+                                    'pub_name': pub_name,
+                                    'action_name': action_name,
+                                }
+                            )
                             icon = row_item.icon()
                             if icon:
                                 tool_item.setIcon(column_idx, icon)
@@ -850,6 +858,7 @@ def setup_extui():
                 for row in to_delete:
                     item_ = menu_tools.takeTopLevelItem(row)
             tools_table.blockSignals(False)
+            rebuild_panels()
 
 
     def on_shape_change(self, value):
@@ -891,10 +900,18 @@ def setup_extui():
             doc = App.ActiveDocument
         window = Gui.getMainWindow()
         storage = window.extui['storage']
+        workbench = Gui.activeWorkbench().name()
+        tools = get_tools_from_settings(
+            storage,
+            workbench,
+            storage.tools,
+        )
+            
+        print('TOOLS: ', tools)
         if storage.overlay_panel_on:
             doc_panels = window.extui['panels'].get(doc.uid, {})
             if not isinstance(doc_panels.get('overlay'), OverlayPanel):
-                overlay_panel = OverlayPanel(parent=window)
+                overlay_panel = OverlayPanel(parent=window, tools=tools)
                 window.extui['panels'].update({doc.uid: {'overlay':  overlay_panel}})
                 overlay_panel.show()
 
@@ -908,11 +925,16 @@ def setup_extui():
                 app.extui['panels'][key].pop('overlay')
                 panel.destroy()
 
+    def rebuild_panels():
+        window = Gui.getMainWindow()
+        if hasattr(window, 'extui'):
+            destroy_overlay_panel()
+            setup_overlay_panel()
+
     def on_workbench_activated():
         def check_attr(wb, name, timer):
             if hasattr(wb, name):
-                destroy_overlay_panel()
-                setup_overlay_panel()
+                rebuild_panels()
                 timer.stop()
                 timer.deleteLater()
                 
@@ -939,5 +961,21 @@ def setup_extui():
             timer.deleteLater()
     observer_setup_timer.timeout.connect(lambda: check_menu(window, observer_setup_timer))
     observer_setup_timer.start(100)
+
+    def global_exception_handler(exctype, value, tb):
+        """Global exception handler to show all exceptions"""
+        error_msg = ''.join(traceback.format_exception(exctype, value, tb))
+        
+        # Print to console
+        print("="*60)
+        print("EXCEPTION CAUGHT:")
+        print(error_msg)
+        print("="*60)
+        
+        # Also send to FreeCAD's Report View
+        App.Console.PrintError(error_msg)
+
+        # Install the global exception handler
+    sys.excepthook = global_exception_handler
 
 setup_extui()

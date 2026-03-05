@@ -215,7 +215,7 @@ class OverlayPanel(QtWidgets.QWidget):
             'matrix': lambda widgets, cols: MatrixShapeWidget(self._overlay, widgets, cols=cols),
             'line': lambda widgets, cols: MatrixShapeWidget(self._overlay, widgets, rows=1) 
         }
-        self.default_layout = self.layouts['line']
+        self.default_layout = self.layouts['matrix']
         self._build_buttons(self.default_layout)        
 
         self._resize_filter = ResizeFilter(self._view_widget, self._overlay, self.update)
@@ -252,10 +252,11 @@ class OverlayPanel(QtWidgets.QWidget):
     #     self.show()
     
     def _make_pushbutton(self, command: list) -> QtWidgets.QPushButton:
-        workbench, name, cmd, icon_name = command
+        workbench, name, cmd, icon = command
         if workbench not in ['Std']:
             import_module(workbench)
-        icon = self._gui.getIcon(icon_name)
+        if isinstance(icon, str):
+            icon = self._gui.getIcon(icon)
         btn = QtWidgets.QPushButton('')
         if icon: 
             btn.setIcon(icon)
@@ -269,11 +270,12 @@ class OverlayPanel(QtWidgets.QWidget):
         return btn
 
     def _make_qaction(self, command: list) -> QAction:
-        workbench, name, cmd, icon_name = command
+        workbench, name, cmd, icon = command
         if workbench not in ['Std']:
             import_module(workbench)
 
-        icon = self._gui.getIcon(icon_name) 
+        if isinstance(icon, str):
+            icon = self._gui.getIcon(icon)
 
         btn = QAction(name, self)
         if icon: 
@@ -284,12 +286,12 @@ class OverlayPanel(QtWidgets.QWidget):
         return btn
     
     def _make_toolbutton(self, command: list) -> QtWidgets.QToolButton:
-        workbench, name, cmd, icon_name = command
+        workbench, name, cmd, icon = command
         if workbench not in ['Std']:
             import_module(workbench)
         group_btn = QtWidgets.QToolButton(self._overlay)
-
-        icon = self._gui.getIcon(icon_name) 
+        if isinstance(icon, str):
+            icon = self._gui.getIcon(icon)
         group_btn.setIcon(icon)
         group_btn.setIconSize(QtCore.QSize(24, 24))
         group_btn.setAutoRaise(True)
@@ -421,7 +423,6 @@ class OverlayPanel(QtWidgets.QWidget):
     def update(self):
         pos_x = (self._view_widget.width() - self._overlay.width()) // 2
         self._overlay.move(pos_x, self._margin_top)
-    
 
 
 def overlay_destroy():

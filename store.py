@@ -75,6 +75,7 @@ class StringListField(StringField):
 
 class JsonField(StringField):
     def __set__(self, instance, value: list | tuple):
+        print('JsonField value: ', value)
         value = json.dumps(value)
         super().__set__(instance, value)
         return value
