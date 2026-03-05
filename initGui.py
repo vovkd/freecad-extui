@@ -854,7 +854,7 @@ def setup_extui():
 
     def on_shape_change(self, value):
         self._storage.shape = value
-        
+
 
     def create_menu(window, timer):
         window = Gui.getMainWindow()
@@ -886,8 +886,7 @@ def setup_extui():
                     window.extui['panels'] = {}
                     window.extui['storage'] = storage
 
-
-    def setup_overlay_panel(doc):
+    def setup_overlay_panel(doc=None):
         if doc is None:
             doc = App.ActiveDocument
         window = Gui.getMainWindow()
@@ -900,7 +899,7 @@ def setup_extui():
                 overlay_panel.show()
 
 
-    def destroy_overlay_panel(doc):
+    def destroy_overlay_panel(doc=None):
         app = Gui.getMainWindow()
         panels = app.extui['panels'].items()
         for key, item in panels:
@@ -909,10 +908,25 @@ def setup_extui():
                 app.extui['panels'][key].pop('overlay')
                 panel.destroy()
 
+    def on_workbench_activated():
+        def check_attr(wb, name, timer):
+            if hasattr(wb, name):
+                destroy_overlay_panel()
+                setup_overlay_panel()
+                timer.stop()
+                timer.deleteLater()
+                
+        wb = Gui.activeWorkbench()
+        _timer = QtCore.QTimer()
+        _timer.timeout.connect(lambda: check_attr(wb, '__Workbench__', _timer))
+        _timer.start(100)
+
     window = Gui.getMainWindow()
+
     startup_timer = QtCore.QTimer()
     startup_timer.timeout.connect(lambda: create_menu(window, startup_timer))
     startup_timer.start(100)
+    
 
     # TODO: rewrite using signals
     doc_observer = None
@@ -920,6 +934,7 @@ def setup_extui():
     def check_menu(window, timer):
         if hasattr(window, 'extui') and ('menu' in window.extui):
             doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel, ))
+            window.workbenchActivated.connect(on_workbench_activated)
             timer.stop()
             timer.deleteLater()
     observer_setup_timer.timeout.connect(lambda: check_menu(window, observer_setup_timer))

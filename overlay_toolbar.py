@@ -221,12 +221,36 @@ class OverlayPanel(QtWidgets.QWidget):
         self._resize_filter = ResizeFilter(self._view_widget, self._overlay, self.update)
         self._view_widget.installEventFilter(self._resize_filter)
 
-    def _build_layout(self):
-        self._layout = QtWidgets.QHBoxLayout(self._overlay)
-        self._layout.setContentsMargins(5, 0, 7, 0)
-        self._layout.setSpacing(1)
+    # def _build_layout(self):
+    #     self._layout = QtWidgets.QHBoxLayout(self._overlay)
+    #     self._layout.setContentsMargins(5, 0, 7, 0)
+    #     self._layout.setSpacing(1)
 
+    # def rebuild(self, tools = None, layout: str = None):
+    #     self.hide()
+    #     if tools:
+    #         self._tools = tools
 
+    #     def recursive_delete(widget):
+    #         if not widget.layout():
+    #             return False
+            
+    #         layout = widget.layout()
+            
+    #         while layout.count():
+    #             item = layout.takeAt(0)
+    #             if item.widget():
+    #                 item.widget().deleteLater()
+    #             elif item.layout():
+    #                 recursive_delete(item.layout())
+         
+    #     recursive_delete(self._layout.layout())
+    #     self._layout.deleteLater()
+    #     self._overlay.setLayout(None)
+    #     layout = self.layouts.get(layout)
+    #     self._build_buttons(self.default_layout)
+    #     self.show()
+    
     def _make_pushbutton(self, command: list) -> QtWidgets.QPushButton:
         workbench, name, cmd, icon_name = command
         if workbench not in ['Std']:
