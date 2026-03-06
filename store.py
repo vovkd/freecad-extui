@@ -75,7 +75,6 @@ class StringListField(StringField):
 
 class JsonField(StringField):
     def __set__(self, instance, value: list | tuple):
-        print('JsonField value: ', value)
         value = json.dumps(value)
         super().__set__(instance, value)
         return value
@@ -89,7 +88,10 @@ class JsonField(StringField):
 class Storage:
     shape = StringField(default='line')
     overlay_panel_on = BooleanField(default=False)
+    # actual workbench overlay panel conf
     tools = JsonField(default='{}')
+    # store action names for fast check
+    index = JsonField(default='{}')
 
     def __init__(self, storage):
         self._storage = storage

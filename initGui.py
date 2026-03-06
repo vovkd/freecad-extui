@@ -27,7 +27,10 @@ def setup_extui():
 
     from store import Storage
     from widgets import DnDTreeWidget
-    from utils import get_tools_from_settings
+    from utils import (
+        get_tools_from_settings,
+        global_exception_handler,
+    )
 
     PARAM_PATH = "User parameter:BaseApp/OverlayToolbar"
     DEFAULT_WORKBENCH = 'PartDesignWorkbench'
@@ -321,7 +324,6 @@ def setup_extui():
             
             # TODO: rewrite using signals
             def toggle_show_panel(checked):
-                print('checked: ', checked)
                 is_panel_on = self._storage.overlay_panel_on = checked
                 if not is_panel_on:
                     destroy_overlay_panel(object)
@@ -621,7 +623,7 @@ def setup_extui():
             # 'Macro',
             'Help',
             # 'FreeCAD',
-            'Std',
+            # 'Std',
             'Clipboard',
         )
         window = Gui.getMainWindow()
@@ -700,16 +702,21 @@ def setup_extui():
         menu_tools.blockSignals(True)
         menu_tools.clear()
         tool_list.blockSignals(False)
-        # storage.checked_tools = []
 
-        for tool in storage.tools.get(workbench, []):
-            name = storage.tools[workbench][tool]['pub_name']
-            items = tool_list.findItems(name, QtCore.Qt.MatchExactly)
-            item = items[0] if items else []
-            if item:
-                row = item.row()
-                checkbox = tool_list.item(row, 0)
-                checkbox.setCheckState(QtCore.Qt.Checked)
+        def _set_checked(tools, tool_list):
+            for tool in tools.values():
+                items = tool_list.findItems(
+                    tool['pub_name'],
+                    QtCore.Qt.MatchExactly
+                )
+                if row := (items[0].row() if items else None):
+                    checkbox = tool_list.item(row, 0)
+                    checkbox.setCheckState(QtCore.Qt.Checked)
+                if children := tool.get('children', {}):
+                    _set_checked(children, tool_list)
+
+        if tools := storage.tools.get(workbench, {}):
+            _set_checked(tools, tool_list)
     
     
     def build_groups_onload(storage, menu_tools):
@@ -718,7 +725,6 @@ def setup_extui():
             if not item:
                 return
         
-            print('item 1: ', item)
             if item.text(column) == text:
                 return item
             
@@ -726,7 +732,6 @@ def setup_extui():
                 for idx in range(item.childCount()):
                     res = search(text, item.child(idx), column)
                     if res:
-                        print('item 3', item)
                         return res
 
         def get_item_by_text(tree, text, column,  depth=1):
@@ -744,9 +749,8 @@ def setup_extui():
                 parent = get_item_by_text(menu_tools, tool_data['pub_name'], 1)
 
                 if parent:
-                    for action_name in tool_data['children']:
-                        child_data = tools[action_name]
-                        child = get_item_by_text(menu_tools, child_data['pub_name'], 1, 2)
+                    for tool in tool_data['children'].values():
+                        child = get_item_by_text(menu_tools, tool['pub_name'], 1, 2)
                         menu_tools.takeTopLevelItem(menu_tools.indexOfTopLevelItem(child))
                         parent.addChild(child)
                     parent.setExpanded(True)
@@ -758,55 +762,71 @@ def setup_extui():
         items: tuple[tuple[QtWidgets.QTreeWidgetItem, QtWidgets.QTreeWidgetItem]],
         parent: QtWidgets.QTreeWidgetItem,
     ) -> None:
-        print('Catched "parent changed" signal.')
+
         tools = storage.tools.copy()
         workbench = storage.active_wb
-        parent_action_name = parent.data(1, QtCore.Qt.UserRole).get('action_name')
-        parent_data = tools[workbench].get(parent_action_name, None)
+        parent_data = None
+
+        if parent:
+            parent_action_name = parent.data(1, QtCore.Qt.UserRole).get('action_name')
+            parent_data = tools[workbench].get(parent_action_name, None)
 
         for item, old_parent in items:
             item_action_name = item.data(1, QtCore.Qt.UserRole).get('action_name')
             if parent_data:
+                
                 if 'children' not in parent_data:
-                    parent_data['children'] = []
-                parent_data['children'].append(item_action_name)
+                    parent_data['children'] = {}
+                if tool := tools[workbench].pop(item_action_name, None):
+                    parent_data['children'].update({item_action_name: tool})
             if old_parent:
                 old_action_name = old_parent.data(1, QtCore.Qt.UserRole).get('action_name')
                 try:
-                    tools[workbench][old_action_name]['children'].remove(item_action_name)    
+                    action = tools[workbench][old_action_name]['children'].pop(item_action_name, None)
+                    if action:
+                        tools[workbench][item_action_name] = action
                 except ValueError:
                     print(f'No <{item_action_name}> in <{old_action_name}> children list.')
-        tools[workbench][parent_action_name] = parent_data
-        storage.tools = tools 
+        if parent_data:
+            tools[workbench][parent_action_name] = parent_data
+        storage.tools = tools
         rebuild_panels()
 
+    def storage_push_value(self, value: dict):
+
+        tools = self._storage.tools.copy()
+        index = self._storage.index.copy()
+        workbench = self._storage.active_wb
+        action_name = value['action_name']
+        if workbench in index:
+            if action_name not in index[workbench]:
+                tools[workbench][action_name] = value
+                index[workbench].append(action_name)
+        else:
+            index[workbench] = [action_name]
+            tools[workbench] = {action_name: value}
+        self._storage.tools = tools
+        self._storage.index = index
+
+    def storage_rm_value(self, value: str):
+        workbench = self._storage.active_wb
+        tools = self._storage.tools
+        tools_ = tools.copy()
+        index = self._storage.index.copy()
+        if workbench in index:
+            for idx, tool in tools[workbench].items():
+                action_name = tool['action_name']
+                if action_name == value:
+                    tools_[workbench].pop(action_name)
+                    index[workbench].remove(action_name)
+                    break
+            if not tools_[workbench]:
+                tools_.pop(workbench, None)
+                index.pop(workbench, None)
+            self._storage.tools = tools_
+            self._storage.index = index
     
     def onchek_tool_list(self, item, menu_tools):
-        def push_value(self, value):
-            tools = self._storage.tools
-            workbench = self._storage.active_wb
-            action_name = value['action_name']
-            if workbench in tools:
-                if action_name not in tools[workbench]:
-                    tools[workbench][action_name] = value
-                    self._storage.tools = tools.copy()
-            else:
-                tools[workbench] = {action_name: value}
-                self._storage.tools = tools.copy()
-
-        def rm_value(self, value):
-            workbench = self._storage.active_wb
-            tools = self._storage.tools
-            tools_ = tools.copy()
-            if workbench in tools:
-                for idx, tool in tools[workbench].items():
-                    action_name = tool['action_name']
-                    if action_name == value:
-                        tools_[workbench].pop(action_name)
-                        break
-                if not tools_[workbench]:
-                    tools_.pop(workbench)
-                self._storage.tools = tools_.copy()
 
         event_row = item.row()
         tools_table = item.tableWidget()
@@ -826,7 +846,7 @@ def setup_extui():
                             item_ = tools_table.item(event_row, 1)
                             pub_name = item_.text()
                             action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
-                            push_value(
+                            storage_push_value(
                                 self, 
                                 {
                                     'pub_name': pub_name,
@@ -853,7 +873,7 @@ def setup_extui():
                         data = item_.data(1, QtCore.Qt.UserRole)
                         if data:
                             action = item_.data(1, QtCore.Qt.UserRole).get('action_name')
-                            rm_value(self, action)
+                            storage_rm_value(self, action)
                         break
                 for row in to_delete:
                     item_ = menu_tools.takeTopLevelItem(row)
@@ -907,8 +927,8 @@ def setup_extui():
             storage.tools,
         )
             
-        print('TOOLS: ', tools)
-        if storage.overlay_panel_on:
+        
+        if storage.overlay_panel_on and tools:
             doc_panels = window.extui['panels'].get(doc.uid, {})
             if not isinstance(doc_panels.get('overlay'), OverlayPanel):
                 overlay_panel = OverlayPanel(parent=window, tools=tools)
@@ -934,6 +954,9 @@ def setup_extui():
     def on_workbench_activated():
         def check_attr(wb, name, timer):
             if hasattr(wb, name):
+                window = Gui.getMainWindow()
+                storage = window.extui['storage']
+                list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
                 rebuild_panels()
                 timer.stop()
                 timer.deleteLater()
@@ -962,20 +985,7 @@ def setup_extui():
     observer_setup_timer.timeout.connect(lambda: check_menu(window, observer_setup_timer))
     observer_setup_timer.start(100)
 
-    def global_exception_handler(exctype, value, tb):
-        """Global exception handler to show all exceptions"""
-        error_msg = ''.join(traceback.format_exception(exctype, value, tb))
-        
-        # Print to console
-        print("="*60)
-        print("EXCEPTION CAUGHT:")
-        print(error_msg)
-        print("="*60)
-        
-        # Also send to FreeCAD's Report View
-        App.Console.PrintError(error_msg)
-
-        # Install the global exception handler
+    # Install the global exception handler
     sys.excepthook = global_exception_handler
 
 setup_extui()
