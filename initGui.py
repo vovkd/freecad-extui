@@ -3,7 +3,6 @@ def setup_extui():
     import sys
     import uuid
     import inspect
-    import traceback
     from dataclasses import dataclass
 
     import FreeCAD as App
