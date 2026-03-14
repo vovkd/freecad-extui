@@ -195,7 +195,7 @@ class OverlayPanel(QtWidgets.QWidget):
         parent=None,
         position: str = OverlayPosition.top,
         orientation: str = OverlayOrientation.horizontal,
-        layout: str = 'line', 
+        layout: str = 'matrix', 
         style: dict | None = None, 
     ) -> None:
 
@@ -206,6 +206,7 @@ class OverlayPanel(QtWidgets.QWidget):
         self._position = position
         self._orientation = orientation
         self._margin_top = 10
+        self._layout_type = layout
         self._button_style = style.get('button') if style else ''
         self._box_style = style.get('box') if style else ''
         
@@ -222,7 +223,7 @@ class OverlayPanel(QtWidgets.QWidget):
             'matrix': lambda widgets, cols, orientation: MatrixShapeWidget(self._overlay, widgets, cols=cols, orientation=orientation),
             'line': lambda widgets, cols, orientation: MatrixShapeWidget(self._overlay, widgets, rows=1, orientation=orientation) 
         }
-        self.default_layout = self.layouts[layout]
+        self.default_layout = self.layouts[self._layout_type]
         self._build_buttons(self.default_layout)        
 
         self._resize_filter = ResizeFilter(self._view_widget, self._overlay, self.update)
@@ -377,13 +378,15 @@ class OverlayPanel(QtWidgets.QWidget):
 
         self._overlay.setStyleSheet(style)
         self._overlay.setMinimumHeight(self._layout.rowCount() * 44)
+        toolbar_width = (self._layout.columnCount() ) * (btn_width + 10) + 20
+        self._overlay.setMinimumWidth(toolbar_width)
+
         if self._orientation == OverlayOrientation.vertical:
             self._overlay.setContentsMargins(5, 7, 7, 7)
-            toolbar_width = btn_width + 30
-            self._overlay.setMaximumWidth(toolbar_width)
-        else:
-            toolbar_width = (self._layout.columnCount() ) * (btn_width + 10) + 20
-            self._overlay.setMinimumWidth(toolbar_width)
+            if self._layout.columnCount() == 1:
+                toolbar_width = btn_width + 30
+                self._overlay.setMaximumWidth(toolbar_width)
+
         return self._overlay
 
     @property
