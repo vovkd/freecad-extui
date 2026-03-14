@@ -92,6 +92,8 @@ class Storage:
     tools = JsonField(default='{}')
     # store action names for fast check
     index = JsonField(default='{}')
+    position = StringField(default='top')
+    orientation = StringField(default='horizontal')
 
     def __init__(self, storage):
         self._storage = storage

@@ -15,7 +15,11 @@ def setup_extui():
     import store
     import widgets
     
-    from overlay_toolbar import OverlayPanel
+    from overlay_toolbar import (
+        OverlayPanel,
+        OverlayPosition,
+        OverlayOrientation,
+    )
 
     module_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     if module_dir not in sys.path:
@@ -272,20 +276,20 @@ def setup_extui():
 
             top_pos_wdg = QtGui.QRadioButton('Top')
             top_pos_wdg.toggled.connect(
-                lambda checked, data='onselect': Console.PrintMessage(f'Trigger mode is: {data}.\n')
+                lambda checked: self._set_pos(OverlayPosition.top, orientation=OverlayOrientation.horizontal)
             )
 
             bottom_pos_wdg = QtGui.QRadioButton('Bottom')
             bottom_pos_wdg.toggled.connect(
-                lambda checked, data='onhotkey':  Console.PrintMessage(f'Trigger mode is: {data}.\n')
+                lambda checked:  self._set_pos(OverlayPosition.bottom, orientation=OverlayOrientation.horizontal)
             )
             left_pos_wdg = QtGui.QRadioButton('Left')
             left_pos_wdg.toggled.connect(
-                lambda checked, data='onhotkey':  Console.PrintMessage(f'Trigger mode is: {data}.\n')
+                lambda checked, position=OverlayPosition.left:  self._set_pos(OverlayPosition.left, orientation=OverlayOrientation.vertical)
             )
             right_pos_wdg = QtGui.QRadioButton('Right')
             right_pos_wdg.toggled.connect(
-                lambda checked, data='onhotkey':  Console.PrintMessage(f'Trigger mode is: {data}.\n')
+                lambda checked, position=OverlayPosition.right:  self._set_pos(OverlayPosition.right, orientation=OverlayOrientation.vertical)
             )
 
             position_wdg = QtGui.QButtonGroup()
@@ -346,7 +350,7 @@ def setup_extui():
             
             search_input_wdg = QtGui.QLineEdit()
             search_input_wdg.setPlaceholderText('Search')
-            # search_input_wdg.textChanged.connect(searchInToolList)
+            search_input_wdg.textChanged.connect(lambda text: autocomplete(self._storage, self._tool_list_wdg, text))
 
             clear_btn_wdg = QtGui.QToolButton()
             clear_btn_wdg.setToolTip('Clear')
@@ -402,6 +406,11 @@ def setup_extui():
             self.hide()
             check_tools(self._storage, workbench, self._tool_list_wdg, self.menu_tools_wd)
             build_groups_onload(self._storage, self.menu_tools_wd)
+            
+        def _set_pos(self, position, orientation):
+            self._storage.position = position
+            self._storage.orientation = orientation
+            rebuild_panels()
         
         def _build_tool_list_widget(self):
             tool_list_wdg = QtGui.QTableWidget()
@@ -755,9 +764,65 @@ def setup_extui():
                     parent.setExpanded(True)
         menu_tools.blockSignals(False)
 
+    def search(storage, term: str) -> list[str]:
+        
+        results = []
+        tools = storage.wbtools[storage.active_wb]
+        for name in tools:
+            if term.lower() in name.lower():
+                results.append(tools[name].text())
+
+        return results
+    
+    def autocomplete(storage, search_table, term: str, exact_match=False):
+        term = term.lower()
+    
+        if not hasattr(search_table, '_hidden_rows'):
+            setattr(search_table, '_hidden_rows', set())
+
+        def hide_row(table, row):
+            if 0 <= row < table.rowCount():
+                table.setRowHidden(row, True)
+                table._hidden_rows.add(row)
+
+        def show_row(table, row):
+            if row in table._hidden_rows:
+                if 0 <= row < table.rowCount():
+                    table.setRowHidden(row, False)
+                    table._hidden_rows.remove(row)
+        
+        def hide_all(table):
+            for row in range(table.rowCount()):
+                hide_row(table, row)
+
+        def show_all(table):
+            if table._hidden_rows:
+                for row in range(table.rowCount()):
+                    show_row(table, row)
+
+        results = search(storage, term)
+
+        hits = 0
+        rows = []
+        for row in range(search_table.rowCount()):
+            if item:= search_table.item(row, 1):
+                cell_value = item.text().lower()
+                cond = cell_value == term if exact_match else term in cell_value
+                if cond:
+                    rows.append(row)
+                    hits += 1
+
+        if term != '' and hits == 0:
+            hide_all(search_table)
+        elif term == '':
+            show_all(search_table)
+        elif rows:
+            hide_all(search_table)
+            for row in rows:
+                show_row(search_table, row)
 
     def update_children(
-        storage,
+        storage: Storage,
         items: tuple[tuple[QtWidgets.QTreeWidgetItem, QtWidgets.QTreeWidgetItem]],
         parent: QtWidgets.QTreeWidgetItem,
     ) -> None:
@@ -930,7 +995,12 @@ def setup_extui():
         if storage.overlay_panel_on and tools:
             doc_panels = window.extui['panels'].get(doc.uid, {})
             if not isinstance(doc_panels.get('overlay'), OverlayPanel):
-                overlay_panel = OverlayPanel(parent=window, tools=tools)
+                overlay_panel = OverlayPanel(
+                    parent=window,
+                    tools=tools, 
+                    position=storage.position,
+                    orientation=storage.orientation,
+                )
                 window.extui['panels'].update({doc.uid: {'overlay':  overlay_panel}})
                 overlay_panel.show()
 

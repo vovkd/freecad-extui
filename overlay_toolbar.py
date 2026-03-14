@@ -1,7 +1,9 @@
+from enum import StrEnum
 from importlib import import_module
+from typing import Literal
 
 from PySide import QtWidgets, QtCore
-from PySide.QtGui import QAction
+from PySide.QtGui import QAction, QWidget
 
 import FreeCADGui as Gui
 from FreeCAD import Console
@@ -131,15 +133,27 @@ tools = (
     ),
 )
 
+class OverlayPosition(StrEnum):
+    top = 'top'
+    right = 'right'
+    left = 'left'
+    bottom = 'bottom'
+
+
+class OverlayOrientation(StrEnum):
+    vertical = 'vertical'
+    horizontal = 'horizontal'
+
 
 class MatrixShapeWidget(QtWidgets.QWidget):
-    def __init__(self, parent, widgets, rows=5, cols=5):
+    def __init__(self, parent, widgets, rows=5, cols=5, orientation=OverlayOrientation.horizontal):
         super().__init__()
         self.layout = QtWidgets.QGridLayout(parent)
         self.layout.setContentsMargins(5, 0, 7, 0)
         self.layout.setSpacing(1)
         self.layout.setVerticalSpacing(2)
         self.widgets = widgets
+        self.orientation = orientation
         if rows == 1:
             self.cols = len(self.widgets)
             self.rows = rows
@@ -154,8 +168,10 @@ class MatrixShapeWidget(QtWidgets.QWidget):
             self.layout.itemAt(idx).widget().setParent(None)
 
         for idx, tool in enumerate(self.widgets):
-            row = idx // self.cols
-            col = idx % self.cols
+            row = idx // cols
+            col = idx % cols
+            if self.orientation == OverlayOrientation.vertical:
+                row, col = col, row
             self.layout.addWidget(tool, row, col)
 
 
@@ -172,32 +188,23 @@ class ResizeFilter(QtCore.QObject):
         return super().eventFilter(obj, event)
 
 
-# class DocumentObserver:
-#     def openDocument(self, docName):
-#         # Code to run when a document is opened
-#         print(f"Document {docName} opened!")
-#         # Call your main macro functionality here
-
-#     def activateDocument(self, docName):
-#         # Code to run when a document is activated
-#         print(f"Document {docName} activated!")
-
-# # Create an instance of the observer and register it
-# observer = DocumentObserver()
-# App.addDocumentObserver(observer)
-
-
 class OverlayPanel(QtWidgets.QWidget):
     def __init__(
         self,
         tools: tuple = tools,
         parent=None,
+        position: str = OverlayPosition.top,
+        orientation: str = OverlayOrientation.horizontal,
+        layout: str = 'line', 
         style: dict | None = None, 
     ) -> None:
 
         super().__init__(parent)
+        self.setObjectName('ExtUI_OverlayPanel')
         self._gui = Gui
         self._tools = tools
+        self._position = position
+        self._orientation = orientation
         self._margin_top = 10
         self._button_style = style.get('button') if style else ''
         self._box_style = style.get('box') if style else ''
@@ -212,44 +219,18 @@ class OverlayPanel(QtWidgets.QWidget):
         
         self._overlay = QtWidgets.QFrame(self._view_widget)
         self.layouts = {
-            'matrix': lambda widgets, cols: MatrixShapeWidget(self._overlay, widgets, cols=cols),
-            'line': lambda widgets, cols: MatrixShapeWidget(self._overlay, widgets, rows=1) 
+            'matrix': lambda widgets, cols, orientation: MatrixShapeWidget(self._overlay, widgets, cols=cols, orientation=orientation),
+            'line': lambda widgets, cols, orientation: MatrixShapeWidget(self._overlay, widgets, rows=1, orientation=orientation) 
         }
-        self.default_layout = self.layouts['matrix']
+        self.default_layout = self.layouts[layout]
         self._build_buttons(self.default_layout)        
 
         self._resize_filter = ResizeFilter(self._view_widget, self._overlay, self.update)
         self._view_widget.installEventFilter(self._resize_filter)
-
-    # def _build_layout(self):
-    #     self._layout = QtWidgets.QHBoxLayout(self._overlay)
-    #     self._layout.setContentsMargins(5, 0, 7, 0)
-    #     self._layout.setSpacing(1)
-
-    # def rebuild(self, tools = None, layout: str = None):
-    #     self.hide()
-    #     if tools:
-    #         self._tools = tools
-
-    #     def recursive_delete(widget):
-    #         if not widget.layout():
-    #             return False
-            
-    #         layout = widget.layout()
-            
-    #         while layout.count():
-    #             item = layout.takeAt(0)
-    #             if item.widget():
-    #                 item.widget().deleteLater()
-    #             elif item.layout():
-    #                 recursive_delete(item.layout())
-         
-    #     recursive_delete(self._layout.layout())
-    #     self._layout.deleteLater()
-    #     self._overlay.setLayout(None)
-    #     layout = self.layouts.get(layout)
-    #     self._build_buttons(self.default_layout)
-    #     self.show()
+    
+    @property
+    def position(self):
+        return self._position
     
     def _make_pushbutton(self, command: list) -> QtWidgets.QPushButton:
         workbench, name, cmd, icon = command
@@ -330,7 +311,7 @@ class OverlayPanel(QtWidgets.QWidget):
             else:
                 btn = self._make_pushbutton(command[0])
                 widgets.append(btn)
-        self._layout = layout(widgets, cols=5).layout
+        self._layout = layout(widgets, cols=10, orientation=self._orientation).layout
 
     def run_cmd(self, cmd: list):
         try:
@@ -396,20 +377,54 @@ class OverlayPanel(QtWidgets.QWidget):
 
         self._overlay.setStyleSheet(style)
         self._overlay.setMinimumHeight(self._layout.rowCount() * 44)
-
-        toolbar_width = (self._layout.columnCount() ) * (btn_width + 10) + 20
-        self._overlay.setMinimumWidth(toolbar_width)
+        if self._orientation == OverlayOrientation.vertical:
+            self._overlay.setContentsMargins(5, 7, 7, 7)
+            toolbar_width = btn_width + 30
+            self._overlay.setMaximumWidth(toolbar_width)
+        else:
+            toolbar_width = (self._layout.columnCount() ) * (btn_width + 10) + 20
+            self._overlay.setMinimumWidth(toolbar_width)
         return self._overlay
 
+    @property
+    def pos_top(self) -> tuple[float, float]:
+        pos_x = (self._view_widget.width() - self._overlay.width()) // 2
+        pos_y = self._margin_top
+        return (pos_x, pos_y)
+
+    @property
+    def pos_bottom(self) -> tuple[float, float]:
+        pos_x = (self._view_widget.width() - self._overlay.width()) // 2
+        pos_y = self._view_widget.height() - self._overlay.height() - self._margin_top
+        return (pos_x, pos_y)
+
+    @property
+    def pos_left(self) -> tuple[float, float]:
+        # overlay = Gui.getMainWindow().findChildren(QWidget, 'OverlayLeft')
+        # overlay = overlay[0]
+        # overlay.blockSignals(True)
+        # overlay.move(overlay.x() + pos_x + self._overlay.width(), overlay.y())
+        # overlay.blockSignals(False)
+
+        pos_x = self._margin_top
+        pos_y = (self._view_widget.height() - self._overlay.height()) // 2
+        return (pos_x, pos_y)
+
+    @property
+    def pos_right(self) -> tuple[float, float]:
+        pos_x = self._view_widget.width() - self._margin_top - self._overlay.width()
+        pos_y = (self._view_widget.height() - self._overlay.height()) // 2
+        return (pos_x, pos_y)
+     
 
     def show(self):
         self._build_overlay()
         if self._view_widget and self._overlay:
-            pos_x = (self._view_widget.width() - self._overlay.width()) // 2
-            self._overlay.move(pos_x, self._margin_top)
+            self.update()
             self._gui._sw_overlay = self._overlay
-            self.adjustSize()
+            # self.adjustSize()
             self._overlay.show()
+
     
     def hide(self):
         self._overlay.hide()
@@ -421,8 +436,13 @@ class OverlayPanel(QtWidgets.QWidget):
         self._overlay.deleteLater()
         
     def update(self):
-        pos_x = (self._view_widget.width() - self._overlay.width()) // 2
-        self._overlay.move(pos_x, self._margin_top)
+        match self.position:
+            case 'bottom': pos_xy = self.pos_bottom
+            case 'right': pos_xy = self.pos_right
+            case 'left': pos_xy = self.pos_left
+            case _: pos_xy = self.pos_top
+
+        self._overlay.move(*pos_xy)
 
 
 def overlay_destroy():
