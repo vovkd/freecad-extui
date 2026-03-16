@@ -39,8 +39,6 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
         if not dragged_items:
             event.ignore()
             return
-        
-        print(f'Dragged items: {[item.text(0) for item in dragged_items]}')
 
         items = [(item, item.parent()) for item in dragged_items]
         # CASE 1: Dropping on a valid target item
@@ -60,7 +58,6 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
             for item in dragged_items:
                 item.setExpanded(True)
             target_item = None
-        print(f'DRAG: {target_item}, {drop_indicator}')
         self.on_parent_changed.emit(items, target_item)
 
     def is_drop_valid(self, dragged_items, target_item):
@@ -100,8 +97,6 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
         This is the key function that does the actual reparenting
         '''
 
-        print(f'Making {len(items)} items children of "{new_parent.text(0)}"')
-        
         self.blockSignals(True)
         
         for item in items:
@@ -113,7 +108,6 @@ class DnDTreeWidget(QtWidgets.QTreeWidget):
                 self.takeTopLevelItem(self.indexOfTopLevelItem(item))
             new_parent.addChild(item)
             
-            print(f"  Moved '{item.text(0)}' from {old_parent_text} to '{new_parent.text(0)}'")
         new_parent.setExpanded(True)
         self.blockSignals(False)
     

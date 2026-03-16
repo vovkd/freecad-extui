@@ -13,7 +13,7 @@ style = """
     border-radius: 8px;
 """
 
-btn_width = 40
+btn_width = 30
 btn_height = 28
 
 button_style = f"""
@@ -23,6 +23,8 @@ button_style = f"""
             width: {btn_width}px;
             height: {btn_height}px;
             border-radius: 8px;
+            padding: 5px;
+            margin: 5px;
         }}
     QPushButton:hover {{
         background-color: rgba(255, 255, 255, 50);
@@ -34,36 +36,44 @@ button_style = f"""
     }}
 """
 
-tool_button_style = """
-    QToolButton {
+tool_button_style = f"""
+    QToolButton {{
         background-color: transparent;
         border-radius: 4px;
-        padding: 1px;
+        padding: 5px;
         padding-right: 12px;
-        width: 40px;
-        height: 30px;
-    }
-    QToolButton:hover {
+        width: {btn_width}px;
+        height: {btn_height}px;
+        margin: 5px;
+    }}
+    QToolButton:hover {{
         background-color: #505050;
-    }
-    QToolButton:pressed {
+    }}
+    QToolButton:pressed {{
         background-color: #505050;
-    }
-    QToolButton::menu-indicator {
+    }}
+    QToolButton::menu-indicator {{
         subcontrol-origin: padding;
         subcontrol-position: center right;
         background-color: transparent;
-        bottom: 2px;
-    }
-    QToolButton::menu-button {
+    }}
+    QToolButton::menu-button {{
         width: 12px;
         padding: 0 1px;
         background: transparent;
-    }
+    }}
 
-    QToolButton::menu-button:hover {
+    QToolButton::menu-button:hover {{
         background: transparent;
-    }
+    }}
+
+    QToolButton::menu-arrow {{
+        background-position: center center;
+        background-repeat: none;
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        height: 10px; /* same as arrow image */
+    }}
 """
 
 menu_style = """
@@ -148,12 +158,19 @@ class OverlayOrientation(StrEnum):
 class MatrixShapeWidget(QtWidgets.QWidget):
     def __init__(self, parent, widgets, rows=5, cols=5, orientation=OverlayOrientation.horizontal):
         super().__init__()
-        self.layout = QtWidgets.QGridLayout(parent)
-        self.layout.setContentsMargins(5, 0, 7, 0)
-        self.layout.setSpacing(1)
-        self.layout.setVerticalSpacing(2)
+
         self.widgets = widgets
         self.orientation = orientation
+        self.layout = QtWidgets.QGridLayout(parent)
+
+        margins = (5, 0, 5, 0)
+        if self.orientation == OverlayOrientation.vertical:
+            margins = (5, 0, 0, 0)
+
+        self.layout.setContentsMargins(*margins)
+        self.layout.setSpacing(2)
+        self.layout.setVerticalSpacing(0)
+
         if rows == 1:
             self.cols = len(self.widgets)
             self.rows = rows
@@ -247,6 +264,7 @@ class OverlayPanel(QtWidgets.QWidget):
         btn.setFlat(True)
         btn.setIconSize(QtCore.QSize(24, 24))
         btn.setStyleSheet(button_style)
+        btn.setMaximumWidth(50)
         btn.clicked.connect(lambda checked=False, c=cmd: self.run_cmd(c))
 
         return btn
@@ -378,7 +396,7 @@ class OverlayPanel(QtWidgets.QWidget):
 
         self._overlay.setStyleSheet(style)
         self._overlay.setMinimumHeight(self._layout.rowCount() * 44)
-        toolbar_width = (self._layout.columnCount() ) * (btn_width + 10) + 20
+        toolbar_width = (self._layout.columnCount() ) * (btn_width + 20) + 20
         self._overlay.setMinimumWidth(toolbar_width)
 
         if self._orientation == OverlayOrientation.vertical:

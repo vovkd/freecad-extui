@@ -8,9 +8,6 @@ def global_exception_handler(exctype, value, tb):
     print('EXCEPTION CAUGHT:')
     print(error_msg)
     print('=' * 60)
-    
-    # Send to FreeCAD's Report View
-    app.Console.PrintError(error_msg)
 
 
 def get_tools_from_settings(storage, workbench: str, data: dict) -> tuple:
@@ -26,7 +23,6 @@ def get_tools_from_settings(storage, workbench: str, data: dict) -> tuple:
     actions = storage.wbtools.get(workbench, {})
     panel_tools = []
     for name, tool in tools.items():
-        print('LOAD TOOL: ', name, tool)
         tool_group = []
         tool_workbench, tool_name = get_parts(workbench, name)
         action_name = tool['action_name']

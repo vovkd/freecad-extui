@@ -59,39 +59,31 @@ def setup_extui():
             self.observer = None
             self.setup_observer()
             self.handlers = handlers
+            self.is_created = False
         
         def setup_observer(self):
             self.observer = App.addDocumentObserver(self)
-        #     # self.gui_observer = Gui.addDocumentObserver(self)
-
-        #     for doc in App.listDocuments().values():
-        #         self.attach_observer(doc)            
 
         def slotActivateDocument(self, doc):
             '''Document opened/activated'''
-            print(f'Document activated: {doc.Name}')
+            print(f'Document activated: {doc.Name}', self.is_created)
             if self.is_created:
                 self.on_document_load(doc)
-
             
         def slotCreatedDocument(self, doc):
             print(f'Document created: {doc.Name}')
             doc.addProperty("App::PropertyString", "uid", "CustomAttributes")
             setattr(doc, 'uid', str(uuid.uuid4()))
             self.is_created = True
+            self.on_document_load(doc)
         
         # def slotDeletedDocument(self, doc):
         #     print(f'Document about to close: {doc.Name}')
         
         def slotRestoredDocument(self, doc):
             print(f'Document to be opened: {doc.Name}')
-
-        # def attach_observer(self, doc):
-        #     print(f'Attached observer to document: {doc.Name}')
-        #     doc.signalRestored.connect(self.on_document_restored)
             
         def on_document_load(self, doc):
-            print(f'Call handlers: {self.handlers}')
             for handler in self.handlers:
                 handler(doc)
 
@@ -226,49 +218,49 @@ def setup_extui():
             # shape_gb_lyt.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
             # Trigger settings group
-            onselect_mode_wdg = QtGui.QRadioButton('On select')
-            onselect_mode_wdg.toggled.connect(
-                lambda checked, data='onselect': Console.PrintMessage(f'Trigger mode is: {data}.\n')
-            )
+            # onselect_mode_wdg = QtGui.QRadioButton('On select')
+            # onselect_mode_wdg.toggled.connect(
+            #     lambda checked, data='onselect': Console.PrintMessage(f'Trigger mode is: {data}.\n')
+            # )
 
-            onhotkey_mode_wdg = QtGui.QRadioButton('On hotkey')
-            onhotkey_mode_wdg.toggled.connect(
-                lambda checked, data='onhotkey':  Console.PrintMessage(f'Trigger mode is: {data}.\n')
-            )
+            # onhotkey_mode_wdg = QtGui.QRadioButton('On hotkey')
+            # onhotkey_mode_wdg.toggled.connect(
+            #     lambda checked, data='onhotkey':  Console.PrintMessage(f'Trigger mode is: {data}.\n')
+            # )
 
-            trigger_mode_wdg = QtGui.QButtonGroup()
-            trigger_mode_wdg.addButton(onselect_mode_wdg)
-            trigger_mode_wdg.addButton(onhotkey_mode_wdg)
+            # trigger_mode_wdg = QtGui.QButtonGroup()
+            # trigger_mode_wdg.addButton(onselect_mode_wdg)
+            # trigger_mode_wdg.addButton(onhotkey_mode_wdg)
 
-            trigger_mode_lyt = QtGui.QVBoxLayout()
-            trigger_mode_lyt.addWidget(onselect_mode_wdg)
-            trigger_mode_lyt.addWidget(onhotkey_mode_wdg)
+            # trigger_mode_lyt = QtGui.QVBoxLayout()
+            # trigger_mode_lyt.addWidget(onselect_mode_wdg)
+            # trigger_mode_lyt.addWidget(onhotkey_mode_wdg)
 
-            fading_distance_lbl = QtGui.QLabel('Fading distance')
-            fading_distance_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+            # fading_distance_lbl = QtGui.QLabel('Fading distance')
+            # fading_distance_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
-            fading_distance_wdg = QtGui.QSpinBox()
-            fading_distance_wdg.setMaximum(999)
-            fading_distance_wdg.setMinimumWidth(90)
-            # # fading_distance_wdg.valueChanged.connect(onfading_distance_wdg)
+            # fading_distance_wdg = QtGui.QSpinBox()
+            # fading_distance_wdg.setMaximum(999)
+            # fading_distance_wdg.setMinimumWidth(90)
+            # # # fading_distance_wdg.valueChanged.connect(onfading_distance_wdg)
 
-            trigger_btn_lyt = QtGui.QHBoxLayout()
-            trigger_btn_lyt.addLayout(trigger_mode_lyt)
-            trigger_btn_lyt.addStretch(1)
-            trigger_values_lyt = QtGui.QHBoxLayout()
-            trigger_values_lyt.addWidget(fading_distance_lbl)
-            trigger_values_lyt.addStretch(1)
-            trigger_values_lyt.addWidget(fading_distance_wdg)
+            # trigger_btn_lyt = QtGui.QHBoxLayout()
+            # trigger_btn_lyt.addLayout(trigger_mode_lyt)
+            # trigger_btn_lyt.addStretch(1)
+            # trigger_values_lyt = QtGui.QHBoxLayout()
+            # trigger_values_lyt.addWidget(fading_distance_lbl)
+            # trigger_values_lyt.addStretch(1)
+            # trigger_values_lyt.addWidget(fading_distance_wdg)
 
-            trigger_controls_lyt = QtGui.QHBoxLayout()
-            trigger_controls_lyt.addLayout(trigger_btn_lyt, 1)
-            trigger_controls_lyt.addLayout(trigger_values_lyt, 1)
+            # trigger_controls_lyt = QtGui.QHBoxLayout()
+            # trigger_controls_lyt.addLayout(trigger_btn_lyt, 1)
+            # trigger_controls_lyt.addLayout(trigger_values_lyt, 1)
             
-            trigger_gb = QtGui.QGroupBox('Trigger')
-            trigger_gb_lyt = QtGui.QHBoxLayout()
-            trigger_gb_lyt.addLayout(trigger_controls_lyt)
-            trigger_gb.setLayout(trigger_gb_lyt)
-            # trigger_gb_lyt.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
+            # trigger_gb = QtGui.QGroupBox('Trigger')
+            # trigger_gb_lyt = QtGui.QHBoxLayout()
+            # trigger_gb_lyt.addLayout(trigger_controls_lyt)
+            # trigger_gb.setLayout(trigger_gb_lyt)
+            # # trigger_gb_lyt.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
 
             # Shortcut settings group
             position_gb = QtGui.QGroupBox('Position')
@@ -338,7 +330,7 @@ def setup_extui():
             general_tab_content_wdg = QtGui.QWidget()
             general_tab_content_lyt = QtGui.QVBoxLayout()
             general_tab_content_lyt.addWidget(shape_gb, alignment=QtCore.Qt.AlignTop)
-            general_tab_content_lyt.addWidget(trigger_gb, alignment=QtCore.Qt.AlignTop)
+            # general_tab_content_lyt.addWidget(trigger_gb, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addWidget(position_gb, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addWidget(show_panel_wdg, alignment=QtCore.Qt.AlignTop)
             general_tab_content_lyt.addStretch(1)
@@ -516,8 +508,6 @@ def setup_extui():
             
         def save_and_close(self):
             # Сохраняем значения в реестр FreeCAD
-            self.params.SetInt("TriggerDistance", self.dist_input.value())
-            self.params.SetBool("AutoHide", self.auto_hide.isChecked())
             
             App.Console.PrintMessage("Настройки сохранены!\n")
             self.accept()
