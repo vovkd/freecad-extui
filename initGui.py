@@ -7,7 +7,7 @@ def setup_extui():
 
     import FreeCAD as App
     import FreeCADGui as Gui
-    from FreeCAD import Console, Units
+    from FreeCAD import Console
 
     from PySide import QtWidgets, QtCore, QtGui
 
@@ -66,22 +66,22 @@ def setup_extui():
 
         def slotActivateDocument(self, doc):
             '''Document opened/activated'''
-            print(f'Document activated: {doc.Name}', self.is_created)
+            App.Console.PrintMessage(f'Document activated: {doc.Name}', self.is_created)
             if self.is_created:
                 self.on_document_load(doc)
             
         def slotCreatedDocument(self, doc):
-            print(f'Document created: {doc.Name}')
+            App.Console.PrintMessage(f'Document created: {doc.Name}')
             doc.addProperty("App::PropertyString", "uid", "CustomAttributes")
             setattr(doc, 'uid', str(uuid.uuid4()))
             self.is_created = True
             self.on_document_load(doc)
         
         # def slotDeletedDocument(self, doc):
-        #     print(f'Document about to close: {doc.Name}')
+        #     App.Console.PrintMessage(f'Document about to close: {doc.Name}')
         
         def slotRestoredDocument(self, doc):
-            print(f'Document to be opened: {doc.Name}')
+            App.Console.PrintMessage(f'Document to be opened: {doc.Name}')
             
         def on_document_load(self, doc):
             for handler in self.handlers:
@@ -374,7 +374,7 @@ def setup_extui():
 
             # Selected tools list
             self.menu_tools_wd = self._build_selected_tools_widget(self._tool_list_wdg)
-            self._tool_list_wdg.itemChanged.connect(lambda item: onchek_tool_list(self, item, self.menu_tools_wd))
+            self._tool_list_wdg.itemChanged.connect(lambda item: self._on_tool_checked(item, self.menu_tools_wd))
 
             # Tabs Constructor
             tabs = QtGui.QTabWidget()
@@ -511,6 +511,89 @@ def setup_extui():
             
             App.Console.PrintMessage("Настройки сохранены!\n")
             self.accept()
+        
+        def _push_tool(self, value: dict):
+            tools = self._storage.tools.copy()
+            index = self._storage.index.copy()
+            workbench = self._storage.active_wb
+            action_name = value['action_name']
+            if workbench in index:
+                if action_name not in index[workbench]:
+                    tools[workbench][action_name] = value
+                    index[workbench].append(action_name)
+            else:
+                index[workbench] = [action_name]
+                tools[workbench] = {action_name: value}
+            self._storage.tools = tools
+            self._storage.index = index
+
+        def _remove_tool(self, action_name: str):
+            workbench = self._storage.active_wb
+            tools = self._storage.tools
+            tools_ = tools.copy()
+            index = self._storage.index.copy()
+            if workbench in index:
+                for idx, tool in tools[workbench].items():
+                    if tool['action_name'] == action_name:
+                        tools_[workbench].pop(action_name)
+                        index[workbench].remove(action_name)
+                        break
+                if not tools_[workbench]:
+                    tools_.pop(workbench, None)
+                    index.pop(workbench, None)
+                self._storage.tools = tools_
+                self._storage.index = index
+
+        def _on_tool_checked(self, item, menu_tools):
+            event_row = item.row()
+            tools_table = item.tableWidget()
+            if item.column() == 0:
+                tools_table.blockSignals(True)
+                if item.checkState() == QtCore.Qt.Checked:
+                    row_num = menu_tools.topLevelItemCount()
+
+                    tool_item = QtWidgets.QTreeWidgetItem()
+                    for column_idx in range(tools_table.columnCount()):
+                        row_item = tools_table.item(event_row, column_idx)
+                        if column_idx == 0:
+                            value = str(row_num + 1)
+                        else:
+                            value = row_item.text()
+                            if column_idx == 1:
+                                item_ = tools_table.item(event_row, 1)
+                                pub_name = item_.text()
+                                action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
+                                self._push_tool(
+                                    {
+                                        'pub_name': pub_name,
+                                        'action_name': action_name,
+                                    }
+                                )
+                                icon = row_item.icon()
+                                if icon:
+                                    tool_item.setIcon(column_idx, icon)
+                                item.setData(QtCore.Qt.UserRole, {'action_name': action_name})
+                                tool_item.setData(column_idx, QtCore.Qt.UserRole, {'action_name': action_name})
+
+                        tool_item.setText(column_idx, value)
+                    menu_tools.insertTopLevelItem(row_num, tool_item)
+                else:
+                    item_ = tools_table.item(item.row(), 1)
+                    value = item_.text()
+                    to_delete = []
+                    for row in range(menu_tools.topLevelItemCount()):
+                        item = menu_tools.topLevelItem(row)
+                        if item.text(1) == value:
+                            to_delete.append(row)
+                            data = item.data(1, QtCore.Qt.UserRole)
+                            if data:
+                                action = item.data(1, QtCore.Qt.UserRole).get('action_name')
+                                self._remove_tool(action)
+                            break
+                    for row in to_delete:
+                        menu_tools.takeTopLevelItem(row)
+                tools_table.blockSignals(False)
+                rebuild_panels()
 
 
     def action_callback():
@@ -707,9 +790,11 @@ def setup_extui():
                     tool['pub_name'],
                     QtCore.Qt.MatchExactly
                 )
-                if row := (items[0].row() if items else None):
-                    checkbox = tool_list.item(row, 0)
-                    checkbox.setCheckState(QtCore.Qt.Checked)
+                if items:
+                    row = items[0].row()
+                    if row is not None:
+                        checkbox = tool_list.item(row, 0)
+                        checkbox.setCheckState(QtCore.Qt.Checked)
                 if children := tool.get('children', {}):
                     _set_checked(children, tool_list)
 
@@ -840,99 +925,99 @@ def setup_extui():
                     if action:
                         tools[workbench][item_action_name] = action
                 except ValueError:
-                    print(f'No <{item_action_name}> in <{old_action_name}> children list.')
+                    App.Console.PrintMessage(f'No <{item_action_name}> in <{old_action_name}> children list.')
         if parent_data:
             tools[workbench][parent_action_name] = parent_data
         storage.tools = tools
         rebuild_panels()
 
-    def storage_push_value(self, value: dict):
+    # def storage_push_value(self, value: dict):
 
-        tools = self._storage.tools.copy()
-        index = self._storage.index.copy()
-        workbench = self._storage.active_wb
-        action_name = value['action_name']
-        if workbench in index:
-            if action_name not in index[workbench]:
-                tools[workbench][action_name] = value
-                index[workbench].append(action_name)
-        else:
-            index[workbench] = [action_name]
-            tools[workbench] = {action_name: value}
-        self._storage.tools = tools
-        self._storage.index = index
+    #     tools = self._storage.tools.copy()
+    #     index = self._storage.index.copy()
+    #     workbench = self._storage.active_wb
+    #     action_name = value['action_name']
+    #     if workbench in index:
+    #         if action_name not in index[workbench]:
+    #             tools[workbench][action_name] = value
+    #             index[workbench].append(action_name)
+    #     else:
+    #         index[workbench] = [action_name]
+    #         tools[workbench] = {action_name: value}
+    #     self._storage.tools = tools
+    #     self._storage.index = index
 
-    def storage_rm_value(self, value: str):
-        workbench = self._storage.active_wb
-        tools = self._storage.tools
-        tools_ = tools.copy()
-        index = self._storage.index.copy()
-        if workbench in index:
-            for idx, tool in tools[workbench].items():
-                action_name = tool['action_name']
-                if action_name == value:
-                    tools_[workbench].pop(action_name)
-                    index[workbench].remove(action_name)
-                    break
-            if not tools_[workbench]:
-                tools_.pop(workbench, None)
-                index.pop(workbench, None)
-            self._storage.tools = tools_
-            self._storage.index = index
+    # def storage_rm_value(self, value: str):
+    #     workbench = self._storage.active_wb
+    #     tools = self._storage.tools
+    #     tools_ = tools.copy()
+    #     index = self._storage.index.copy()
+    #     if workbench in index:
+    #         for idx, tool in tools[workbench].items():
+    #             action_name = tool['action_name']
+    #             if action_name == value:
+    #                 tools_[workbench].pop(action_name)
+    #                 index[workbench].remove(action_name)
+    #                 break
+    #         if not tools_[workbench]:
+    #             tools_.pop(workbench, None)
+    #             index.pop(workbench, None)
+    #         self._storage.tools = tools_
+    #         self._storage.index = index
     
-    def onchek_tool_list(self, item, menu_tools):
+    # def onchek_tool_list(self, item, menu_tools):
 
-        event_row = item.row()
-        tools_table = item.tableWidget()
-        if item.column() == 0:
-            tools_table.blockSignals(True)
-            if item.checkState() == QtCore.Qt.Checked:
-                row_num = menu_tools.topLevelItemCount()
+    #     event_row = item.row()
+    #     tools_table = item.tableWidget()
+    #     if item.column() == 0:
+    #         tools_table.blockSignals(True)
+    #         if item.checkState() == QtCore.Qt.Checked:
+    #             row_num = menu_tools.topLevelItemCount()
 
-                tool_item = QtWidgets.QTreeWidgetItem()
-                for column_idx in range(tools_table.columnCount()):
-                    row_item = tools_table.item(event_row, column_idx)
-                    if column_idx == 0:
-                        value = str(row_num + 1)
-                    else:
-                        value = row_item.text()
-                        if column_idx == 1:
-                            item_ = tools_table.item(event_row, 1)
-                            pub_name = item_.text()
-                            action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
-                            storage_push_value(
-                                self, 
-                                {
-                                    'pub_name': pub_name,
-                                    'action_name': action_name,
-                                }
-                            )
-                            icon = row_item.icon()
-                            if icon:
-                                tool_item.setIcon(column_idx, icon)
-                            item.setData(QtCore.Qt.UserRole, {'action_name': action_name})
-                            tool_item.setData(column_idx, QtCore.Qt.UserRole, {'action_name': action_name})
+    #             tool_item = QtWidgets.QTreeWidgetItem()
+    #             for column_idx in range(tools_table.columnCount()):
+    #                 row_item = tools_table.item(event_row, column_idx)
+    #                 if column_idx == 0:
+    #                     value = str(row_num + 1)
+    #                 else:
+    #                     value = row_item.text()
+    #                     if column_idx == 1:
+    #                         item_ = tools_table.item(event_row, 1)
+    #                         pub_name = item_.text()
+    #                         action_name = item_.data(QtCore.Qt.UserRole).get('action_name')
+    #                         storage_push_value(
+    #                             self, 
+    #                             {
+    #                                 'pub_name': pub_name,
+    #                                 'action_name': action_name,
+    #                             }
+    #                         )
+    #                         icon = row_item.icon()
+    #                         if icon:
+    #                             tool_item.setIcon(column_idx, icon)
+    #                         item.setData(QtCore.Qt.UserRole, {'action_name': action_name})
+    #                         tool_item.setData(column_idx, QtCore.Qt.UserRole, {'action_name': action_name})
                             
-                    tool_item.setText(column_idx, value)
-                menu_tools.insertTopLevelItem(row_num, tool_item)
-            else:
-                item = tools_table.item(item.row(), 1)
-                value = item.text()
-                to_delete = []
-                for row in range(menu_tools.topLevelItemCount()):
-                    item = menu_tools.topLevelItem(row)
-                    if item.text(1) == value:
-                        to_delete.append(row)
-                        item_ = menu_tools.topLevelItem(row)
-                        data = item_.data(1, QtCore.Qt.UserRole)
-                        if data:
-                            action = item_.data(1, QtCore.Qt.UserRole).get('action_name')
-                            storage_rm_value(self, action)
-                        break
-                for row in to_delete:
-                    item_ = menu_tools.takeTopLevelItem(row)
-            tools_table.blockSignals(False)
-            rebuild_panels()
+    #                 tool_item.setText(column_idx, value)
+    #             menu_tools.insertTopLevelItem(row_num, tool_item)
+    #         else:
+    #             item = tools_table.item(item.row(), 1)
+    #             value = item.text()
+    #             to_delete = []
+    #             for row in range(menu_tools.topLevelItemCount()):
+    #                 item = menu_tools.topLevelItem(row)
+    #                 if item.text(1) == value:
+    #                     to_delete.append(row)
+    #                     item_ = menu_tools.topLevelItem(row)
+    #                     data = item_.data(1, QtCore.Qt.UserRole)
+    #                     if data:
+    #                         action = item_.data(1, QtCore.Qt.UserRole).get('action_name')
+    #                         storage_rm_value(self, action)
+    #                     break
+    #             for row in to_delete:
+    #                 item_ = menu_tools.takeTopLevelItem(row)
+    #         tools_table.blockSignals(False)
+    #         rebuild_panels()
 
 
     def on_shape_change(self, value):
