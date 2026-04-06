@@ -133,9 +133,14 @@ def setup_extui():
             return
         storage = window.extui["storage"]
 
-        wb_name = wb.name() if hasattr(wb, "name") else DEFAULT_WORKBENCH
-        list_wb_tools(storage, wb_name or DEFAULT_WORKBENCH)
-        rebuild_panels()
+        def check_attr(wb, name):
+            if hasattr(wb, name):
+                window = Gui.getMainWindow()
+                storage = window.extui['storage']
+                list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
+                rebuild_panels()
+ 
+        QtCore.QTimer.singleShot(150, lambda: check_attr(wb, '__Workbench__'))
 
     window = Gui.getMainWindow()
 
