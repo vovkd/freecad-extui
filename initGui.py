@@ -1024,35 +1024,28 @@ def setup_extui():
         self._storage.shape = value
 
 
-    def create_menu(window, timer):
+    def create_menu(window):
         window = Gui.getMainWindow()
-        App.Console.PrintMessage("Try create menu. \n")
-        if window.property("eventLoop"):
-            started = False
-            try:
-                window.mainWindowClosed
-                window.workbenchActivated
-                App.Console.PrintMessage("Cheked window. \n")
-                started = True
-                App.Console.PrintMessage("Window started. \n")
-            except AttributeError:
-                pass
-
-            if started:
-                timer.stop()
-                timer.deleteLater()
-                App.Console.PrintMessage("Stopped timer. \n")
-                config = App.ParamGet(PARAM_PATH)
-                storage = Storage(config)
-                context_toolbar_settings = SettingsWindow(storage)
-                menu = Menu(name='Ext UI', items={'Overlay panel': context_toolbar_settings.show})
-                
-                if not hasattr(window, 'extui'):
-                    setattr(window, 'extui', dict())
-                if not ('menu' in window.extui):
-                    window.extui['menu'] = menu
-                    window.extui['panels'] = {}
-                    window.extui['storage'] = storage
+        # The window should be ready now. If not, log and return silently.
+        if not window:
+            Console.PrintError("Main window not available yet.\n")
+            return
+        
+        config = App.ParamGet(PARAM_PATH)
+        storage = Storage(config)
+        context_toolbar_settings = SettingsWindow(storage)
+        menu = Menu(name='Ext UI', items={'Overlay panel': context_toolbar_settings.show})
+        
+        if not hasattr(window, 'extui'):
+            setattr(window, 'extui', dict())
+        
+        window.extui['menu'] = menu
+        window.extui['panels'] = {}
+        window.extui['storage'] = storage
+        
+        doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel,))
+        window.extui['doc_observer'] = doc_observer
+        window.workbenchActivated.connect(on_workbench_activated)
 
     def setup_overlay_panel(doc=None):
         if doc is None:
@@ -1096,38 +1089,20 @@ def setup_extui():
             setup_overlay_panel()
 
     def on_workbench_activated():
-        def check_attr(wb, name, timer):
-            if hasattr(wb, name):
-                window = Gui.getMainWindow()
-                storage = window.extui['storage']
-                list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
-                rebuild_panels()
-                timer.stop()
-                timer.deleteLater()
-                
         wb = Gui.activeWorkbench()
-        _timer = QtCore.QTimer()
-        _timer.timeout.connect(lambda: check_attr(wb, '__Workbench__', _timer))
-        _timer.start(100)
+        window = Gui.getMainWindow()
+        if not hasattr(window, 'extui') or 'storage' not in window.extui:
+            return
+        storage = window.extui['storage']
+        # Workbench is fully activated – safe to read its tools
+        list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
+        rebuild_panels()
 
     window = Gui.getMainWindow()
 
-    startup_timer = QtCore.QTimer()
-    startup_timer.timeout.connect(lambda: create_menu(window, startup_timer))
-    startup_timer.start(100)
-    
-
-    # TODO: rewrite using signals
-    doc_observer = None
-    observer_setup_timer = QtCore.QTimer()
-    def check_menu(window, timer):
-        if hasattr(window, 'extui') and ('menu' in window.extui):
-            doc_observer = DocumentEventsHandler(App, handlers=(setup_overlay_panel, ))
-            window.workbenchActivated.connect(on_workbench_activated)
-            timer.stop()
-            timer.deleteLater()
-    observer_setup_timer.timeout.connect(lambda: check_menu(window, observer_setup_timer))
-    observer_setup_timer.start(100)
+    def try_create_menu():
+        create_menu(window)
+    QtCore.QTimer.singleShot(150, try_create_menu)
 
     # Install the global exception handler
     sys.excepthook = global_exception_handler
