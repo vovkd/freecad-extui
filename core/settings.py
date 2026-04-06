@@ -12,7 +12,7 @@ class SettingsWindow(QtWidgets.QDialog):
         import FreeCADGui as Gui
 
         super().__init__(Gui.getMainWindow())
-        self.setWindowTitle("Настройки ExUI.")
+        self.setWindowTitle('Настройки ExUI.')
         self.setMinimumSize(800, 600)
         self.setModal(True)
         self._storage = storage
@@ -40,8 +40,8 @@ class SettingsWindow(QtWidgets.QDialog):
         )
 
         tabs = QtGui.QTabWidget()
-        tabs.addTab(self._build_general_tab(), "General")
-        tabs.addTab(self._build_tools_tab(), "Tools")
+        tabs.addTab(self._build_general_tab(), 'General')
+        tabs.addTab(self._build_tools_tab(), 'Tools')
 
         left_panel_wd = QtWidgets.QWidget()
         splitter_wdg = QtWidgets.QSplitter()
@@ -84,13 +84,13 @@ class SettingsWindow(QtWidgets.QDialog):
 
     def _build_tools_tab(self):
         search_input_wdg = QtGui.QLineEdit()
-        search_input_wdg.setPlaceholderText("Search")
+        search_input_wdg.setPlaceholderText('Search')
         search_input_wdg.textChanged.connect(
             lambda text: self._autocomplete(self._storage, self._tool_list_wdg, text)
         )
 
         clear_btn_wdg = QtWidgets.QToolButton()
-        clear_btn_wdg.setToolTip("Clear")
+        clear_btn_wdg.setToolTip('Clear')
         clear_btn_wdg.setMaximumWidth(40)
         clear_btn_wdg.clicked.connect(search_input_wdg.clear)
 
@@ -119,7 +119,7 @@ class SettingsWindow(QtWidgets.QDialog):
         import FreeCADGui as Gui
         from overlay_toolbar import OverlayPosition, OverlayOrientation
 
-        select_wb_lbl = QtGui.QLabel("Workbench")
+        select_wb_lbl = QtGui.QLabel('Workbench')
         select_wb_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
 
         def on_select(storage, widget, table, idx):
@@ -138,7 +138,7 @@ class SettingsWindow(QtWidgets.QDialog):
 
         select_wb_wdg = QtGui.QComboBox()
         select_wb_wdg.setMaxVisibleItems(10)
-        select_wb_wdg.setStyleSheet("QComboBox { combobox-popup: 0; }")
+        select_wb_wdg.setStyleSheet('QComboBox { combobox-popup: 0; }')
         select_wb_wdg.blockSignals(True)
         select_wb_wdg.currentIndexChanged.connect(
             lambda idx: on_select(
@@ -156,7 +156,7 @@ class SettingsWindow(QtWidgets.QDialog):
             select_wb_wdg.setCurrentIndex(idx)
         select_wb_wdg.blockSignals(False)
 
-        general_gb = QtGui.QGroupBox("General")
+        general_gb = QtGui.QGroupBox('General')
         general_gb_lyt = QtGui.QHBoxLayout()
         general_gb_lyt.addWidget(select_wb_lbl)
         general_gb_lyt.addWidget(select_wb_wdg)
@@ -165,7 +165,7 @@ class SettingsWindow(QtWidgets.QDialog):
         return general_gb
 
     def _build_shape_group(self):
-        shape_lbl = QtGui.QLabel("Shape")
+        shape_lbl = QtGui.QLabel('Shape')
         shape_lbl.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
         shape_wdg = QtGui.QComboBox()
@@ -175,7 +175,7 @@ class SettingsWindow(QtWidgets.QDialog):
             lambda: self._on_shape_change(shape_wdg.currentText())
         )
         shape_wdg.setMinimumWidth(140)
-        shape_wdg.addItems(("Line", "Matrix"))
+        shape_wdg.addItems(('Line', 'Matrix'))
         shape_wdg.blockSignals(False)
 
         shape_lbl_wrapper = QtWidgets.QHBoxLayout()
@@ -188,7 +188,7 @@ class SettingsWindow(QtWidgets.QDialog):
         shape_lyt.addLayout(shape_lbl_wrapper, 1)
         shape_lyt.addLayout(shape_wdg_wrapper, 1)
 
-        shape_gb = QtGui.QGroupBox("Shape")
+        shape_gb = QtGui.QGroupBox('Shape')
         shape_gb_lyt = QtWidgets.QVBoxLayout()
         shape_gb_lyt.addLayout(shape_lyt)
         shape_gb.setLayout(shape_gb_lyt)
@@ -198,26 +198,26 @@ class SettingsWindow(QtWidgets.QDialog):
     def _build_position_group(self):
         from overlay_toolbar import OverlayPosition, OverlayOrientation
 
-        top_pos_wdg = QtGui.QRadioButton("Top")
+        top_pos_wdg = QtGui.QRadioButton('Top')
         top_pos_wdg.toggled.connect(
             lambda checked: self._set_pos(
                 OverlayPosition.top, orientation=OverlayOrientation.horizontal
             )
         )
 
-        bottom_pos_wdg = QtGui.QRadioButton("Bottom")
+        bottom_pos_wdg = QtGui.QRadioButton('Bottom')
         bottom_pos_wdg.toggled.connect(
             lambda checked: self._set_pos(
                 OverlayPosition.bottom, orientation=OverlayOrientation.horizontal
             )
         )
-        left_pos_wdg = QtGui.QRadioButton("Left")
+        left_pos_wdg = QtGui.QRadioButton('Left')
         left_pos_wdg.toggled.connect(
             lambda checked: self._set_pos(
                 OverlayPosition.left, orientation=OverlayOrientation.vertical
             )
         )
-        right_pos_wdg = QtGui.QRadioButton("Right")
+        right_pos_wdg = QtGui.QRadioButton('Right')
         right_pos_wdg.toggled.connect(
             lambda checked: self._set_pos(
                 OverlayPosition.right, orientation=OverlayOrientation.vertical
@@ -246,14 +246,14 @@ class SettingsWindow(QtWidgets.QDialog):
         position_controls_lyt = QtWidgets.QHBoxLayout()
         position_controls_lyt.addLayout(position_btn_lyt, 1)
 
-        position_gb = QtGui.QGroupBox("Position")
+        position_gb = QtGui.QGroupBox('Position')
         position_gb_lyt = QtWidgets.QHBoxLayout()
         position_gb_lyt.addLayout(position_controls_lyt)
         position_gb.setLayout(position_gb_lyt)
         return position_gb
 
     def _build_show_panel_checkbox(self):
-        show_panel_wdg = QtGui.QCheckBox("Show panel")
+        show_panel_wdg = QtGui.QCheckBox('Show panel')
         show_panel_wdg.setChecked(self._storage.overlay_panel_on)
         show_panel_wdg.setTristate(False)
 
@@ -283,7 +283,7 @@ class SettingsWindow(QtWidgets.QDialog):
         tool_list_wdg.sortItems(1, QtCore.Qt.AscendingOrder)
         tool_list_wdg.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         tool_list_wdg.verticalHeader().setVisible(False)
-        tool_list_wdg.setHorizontalHeaderLabels(("...", "Tools", "Workbench"))
+        tool_list_wdg.setHorizontalHeaderLabels(('...', 'Tools', 'Workbench'))
 
         tool_list_wdg.horizontalHeader().setSectionResizeMode(
             0, QtWidgets.QHeaderView.Fixed
@@ -308,7 +308,7 @@ class SettingsWindow(QtWidgets.QDialog):
 
         menu_tools_wd = DnDTreeWidget()
         menu_tools_wd.setColumnCount(2)
-        menu_tools_wd.setHeaderLabels(["Hotkey", "Tools"])
+        menu_tools_wd.setHeaderLabels(['Hotkey', 'Tools'])
         menu_tools_wd.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         menu_tools_wd.headerItem().setTextAlignment(
             0, QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
@@ -336,7 +336,7 @@ class SettingsWindow(QtWidgets.QDialog):
         highlight_color = palette.color(QtGui.QPalette.Highlight).name()
         highlighted_text = palette.color(QtGui.QPalette.HighlightedText).name()
 
-        menu_tools_wd.setStyleSheet(f"""
+        menu_tools_wd.setStyleSheet(f'''
             QTreeWidget {{
                 alternate-background-color: {alternate_color};
                 selection-background-color: {highlight_color};
@@ -373,18 +373,18 @@ class SettingsWindow(QtWidgets.QDialog):
             QTreeWidget::item:focus {{
                 outline: none;
             }}
-        """)
+        ''')
         return menu_tools_wd
 
     def save_and_close(self):
-        App.Console.PrintMessage("Настройки сохранены!\n")
+        App.Console.PrintMessage('Настройки сохранены!\n')
         self.accept()
 
     def _push_tool(self, value: dict):
         tools = self._storage.tools.copy()
         index = self._storage.index.copy()
         workbench = self._storage.active_wb
-        action_name = value["action_name"]
+        action_name = value['action_name']
         if workbench in index:
             if action_name not in index[workbench]:
                 tools[workbench][action_name] = value
@@ -402,7 +402,7 @@ class SettingsWindow(QtWidgets.QDialog):
         index = self._storage.index.copy()
         if workbench in index:
             for idx, tool in tools[workbench].items():
-                if tool["action_name"] == action_name:
+                if tool['action_name'] == action_name:
                     tools_[workbench].pop(action_name)
                     index[workbench].remove(action_name)
                     break
@@ -430,21 +430,21 @@ class SettingsWindow(QtWidgets.QDialog):
                             item_ = tools_table.item(event_row, 1)
                             pub_name = item_.text()
                             action_name = item_.data(QtCore.Qt.UserRole).get(
-                                "action_name"
+                                'action_name'
                             )
                             self._push_tool(
-                                {"pub_name": pub_name, "action_name": action_name}
+                                {'pub_name': pub_name, 'action_name': action_name}
                             )
                             icon = row_item.icon()
                             if icon:
                                 tool_item.setIcon(column_idx, icon)
                             item.setData(
-                                QtCore.Qt.UserRole, {"action_name": action_name}
+                                QtCore.Qt.UserRole, {'action_name': action_name}
                             )
                             tool_item.setData(
                                 column_idx,
                                 QtCore.Qt.UserRole,
-                                {"action_name": action_name},
+                                {'action_name': action_name},
                             )
                     tool_item.setText(column_idx, value)
                 menu_tools.insertTopLevelItem(row_num, tool_item)
@@ -458,7 +458,7 @@ class SettingsWindow(QtWidgets.QDialog):
                         to_delete.append(row)
                         data = item.data(1, QtCore.Qt.UserRole)
                         if data:
-                            action = item.data(1, QtCore.Qt.UserRole).get("action_name")
+                            action = item.data(1, QtCore.Qt.UserRole).get('action_name')
                             self._remove_tool(action)
                         break
                 for row in to_delete:
@@ -472,14 +472,14 @@ class SettingsWindow(QtWidgets.QDialog):
             name, sys_name_ = item
             if sys_name_ == sys_name:
                 return name
-        return ""
+        return ''
 
     def _on_shape_change(self, value):
         self._storage.shape = value
         if self._rebuild_callback:
             self._rebuild_callback()
 
-    def _populate_tools_list(self, storage: "Storage", table_widget):
+    def _populate_tools_list(self, storage: 'Storage', table_widget):
         from widgets import DnDTreeWidget
 
         table_widget.blockSignals(True)
@@ -500,8 +500,8 @@ class SettingsWindow(QtWidgets.QDialog):
             table_widget.setItem(row, 0, checkbox_item)
 
             tool = tools[tool_name]
-            tool_item = QtWidgets.QTableWidgetItem(tool.text().replace("&", ""))
-            tool_item.setData(QtCore.Qt.UserRole, {"action_name": tool_name})
+            tool_item = QtWidgets.QTableWidgetItem(tool.text().replace('&', ''))
+            tool_item.setData(QtCore.Qt.UserRole, {'action_name': tool_name})
             tool_item.setIcon(tool.icon())
             tool_item.setFlags(QtCore.Qt.ItemIsEnabled)
             tool_item.setToolTip(tool.toolTip())
@@ -509,7 +509,7 @@ class SettingsWindow(QtWidgets.QDialog):
 
             workbench = get_wb_name(tool_name)
             if workbench:
-                workbench = "FreeCAD" if workbench == "Std" else workbench
+                workbench = 'FreeCAD' if workbench == 'Std' else workbench
                 item = QtGui.QTableWidgetItem(workbench)
                 item.setFlags(QtCore.Qt.ItemIsEnabled)
                 table_widget.setItem(row, 2, item)
@@ -526,13 +526,13 @@ class SettingsWindow(QtWidgets.QDialog):
 
         def _set_checked(tools, tool_list):
             for tool in tools.values():
-                items = tool_list.findItems(tool["pub_name"], QtCore.Qt.MatchExactly)
+                items = tool_list.findItems(tool['pub_name'], QtCore.Qt.MatchExactly)
                 if items:
                     row = items[0].row()
                     if row is not None:
                         checkbox = tool_list.item(row, 0)
                         checkbox.setCheckState(QtCore.Qt.Checked)
-                if children := tool.get("children", {}):
+                if children := tool.get('children', {}):
                     _set_checked(children, tool_list)
 
         if tools := storage.tools.get(workbench, {}):
@@ -561,11 +561,11 @@ class SettingsWindow(QtWidgets.QDialog):
         menu_tools.blockSignals(True)
         for action_name, tool_data in tools.items():
             parent = None
-            if "children" in tool_data:
-                parent = get_item_by_text(menu_tools, tool_data["pub_name"], 1)
+            if 'children' in tool_data:
+                parent = get_item_by_text(menu_tools, tool_data['pub_name'], 1)
                 if parent:
-                    for tool in tool_data["children"].values():
-                        child = get_item_by_text(menu_tools, tool["pub_name"], 1, 2)
+                    for tool in tool_data['children'].values():
+                        child = get_item_by_text(menu_tools, tool['pub_name'], 1, 2)
                         menu_tools.takeTopLevelItem(
                             menu_tools.indexOfTopLevelItem(child)
                         )
@@ -575,8 +575,8 @@ class SettingsWindow(QtWidgets.QDialog):
 
     def _autocomplete(self, storage, search_table, term: str, exact_match=False):
         term = term.lower()
-        if not hasattr(search_table, "_hidden_rows"):
-            setattr(search_table, "_hidden_rows", set())
+        if not hasattr(search_table, '_hidden_rows'):
+            setattr(search_table, '_hidden_rows', set())
 
         def hide_row(table, row):
             if 0 <= row < table.rowCount():
@@ -608,9 +608,9 @@ class SettingsWindow(QtWidgets.QDialog):
                     rows.append(row)
                     hits += 1
 
-        if term != "" and hits == 0:
+        if term != '' and hits == 0:
             hide_all(search_table)
-        elif term == "":
+        elif term == '':
             show_all(search_table)
         elif rows:
             hide_all(search_table)
@@ -625,29 +625,29 @@ class SettingsWindow(QtWidgets.QDialog):
         parent_data = None
 
         if parent:
-            parent_action_name = parent.data(1, QtCore.Qt.UserRole).get("action_name")
+            parent_action_name = parent.data(1, QtCore.Qt.UserRole).get('action_name')
             parent_data = tools[workbench].get(parent_action_name, None)
 
         for item, old_parent in items:
-            item_action_name = item.data(1, QtCore.Qt.UserRole).get("action_name")
+            item_action_name = item.data(1, QtCore.Qt.UserRole).get('action_name')
             if parent_data:
-                if "children" not in parent_data:
-                    parent_data["children"] = {}
+                if 'children' not in parent_data:
+                    parent_data['children'] = {}
                 if tool := tools[workbench].pop(item_action_name, None):
-                    parent_data["children"].update({item_action_name: tool})
+                    parent_data['children'].update({item_action_name: tool})
             if old_parent:
                 old_action_name = old_parent.data(1, QtCore.Qt.UserRole).get(
-                    "action_name"
+                    'action_name'
                 )
                 try:
-                    action = tools[workbench][old_action_name]["children"].pop(
+                    action = tools[workbench][old_action_name]['children'].pop(
                         item_action_name, None
                     )
                     if action:
                         tools[workbench][item_action_name] = action
                 except ValueError:
                     App.Console.PrintMessage(
-                        f"No <{item_action_name}> in <{old_action_name}> children list."
+                        f'No <{item_action_name}> in <{old_action_name}> children list.'
                     )
         if parent_data:
             tools[workbench][parent_action_name] = parent_data
