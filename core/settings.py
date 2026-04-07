@@ -1,15 +1,15 @@
 from PySide import QtWidgets, QtCore, QtGui
 
 import FreeCAD as App
+import FreeCADGui as Gui
 from FreeCAD import Console
 
+from widgets import DnDTreeWidget
 from core.constants import DEFAULT_WORKBENCH, Workbenches
 from core.workbench import list_wb_tools, get_wb_name
 
-
 class SettingsWindow(QtWidgets.QDialog):
     def __init__(self, storage, rebuild_callback=None):
-        import FreeCADGui as Gui
 
         super().__init__(Gui.getMainWindow())
         self.setWindowTitle('Настройки ExUI.')
@@ -22,8 +22,6 @@ class SettingsWindow(QtWidgets.QDialog):
         self.init_ui()
 
     def _list_workbenches(self):
-        import FreeCADGui as Gui
-
         workbenches = Gui.listWorkbenches()
         return {workbenches[name].MenuText: name for name in sorted(workbenches)}
 
@@ -55,9 +53,6 @@ class SettingsWindow(QtWidgets.QDialog):
         left_panel_wd.setLayout(left_panel_lyt)
 
         self.layout.addWidget(left_panel_wd, alignment=QtCore.Qt.AlignTop)
-
-        from core.workbench import list_wb_tools
-
         self._populate_tools_list(self._storage, self._tool_list_wdg)
         workbench = self._storage.active_wb or DEFAULT_WORKBENCH
         self.hide()
@@ -116,7 +111,7 @@ class SettingsWindow(QtWidgets.QDialog):
         return tools_tab_content_wdg
 
     def _build_general_group(self):
-        import FreeCADGui as Gui
+        
         from overlay_toolbar import OverlayPosition, OverlayOrientation
 
         select_wb_lbl = QtGui.QLabel('Workbench')
@@ -304,7 +299,7 @@ class SettingsWindow(QtWidgets.QDialog):
         return tool_list_wdg
 
     def _build_selected_tools_widget(self, table):
-        from widgets import DnDTreeWidget
+        
 
         menu_tools_wd = DnDTreeWidget()
         menu_tools_wd.setColumnCount(2)
@@ -480,8 +475,7 @@ class SettingsWindow(QtWidgets.QDialog):
             self._rebuild_callback()
 
     def _populate_tools_list(self, storage: 'Storage', table_widget):
-        from widgets import DnDTreeWidget
-
+        
         table_widget.blockSignals(True)
         table_widget.clearContents()
         table_widget.setRowCount(0)
@@ -618,7 +612,7 @@ class SettingsWindow(QtWidgets.QDialog):
                 show_row(search_table, row)
 
     def _update_children(self, items, parent):
-        from widgets import DnDTreeWidget
+        
 
         tools = self._storage.tools.copy()
         workbench = self._storage.active_wb

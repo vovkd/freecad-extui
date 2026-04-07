@@ -55,6 +55,7 @@ def setup_extui():
         Console.PrintMessage("Hello from menubar option.\n")
 
     def create_menu(window):
+        print('OverlayPanel menu initialization.')
         window = Gui.getMainWindow()
         if not window:
             Console.PrintError("Main window not available yet.\n")
@@ -62,6 +63,7 @@ def setup_extui():
 
         config = App.ParamGet(PARAM_PATH)
         storage = Storage(config)
+        
         context_toolbar_settings = SettingsWindow(
             storage, rebuild_callback=rebuild_panels
         )
@@ -79,6 +81,16 @@ def setup_extui():
         doc_observer = DocumentEventsHandler(App, handlers=(core_setup_panel,))
         window.extui["doc_observer"] = doc_observer
         window.workbenchActivated.connect(on_workbench_activated)
+
+        QtCore.QTimer.singleShot(100, setup_overlay_panel)
+
+        if App.ActiveDocument:
+            wb = Gui.activeWorkbench()
+            wb_name = wb.name() if hasattr(wb, "name") else DEFAULT_WORKBENCH
+            QtCore.QTimer.singleShot(200, lambda: list_wb_tools(storage, wb_name))
+            QtCore.QTimer.singleShot(
+                300, lambda: setup_overlay_panel(App.ActiveDocument)
+            )
 
     def setup_overlay_panel(doc=None):
         if doc is None:
@@ -126,30 +138,41 @@ def setup_extui():
             destroy_overlay_panel()
             setup_overlay_panel()
 
-    def on_workbench_activated():
-        wb = Gui.activeWorkbench()
-        window = Gui.getMainWindow()
-        if not hasattr(window, "extui") or "storage" not in window.extui:
-            return
-        storage = window.extui["storage"]
+    def is_workbench_loaded(attr="__Workbench__"):
+        try:
+            wb = Gui.activeWorkbench()
+            if hasattr(wb, attr):
+                return True
+        except AssertionError:
+            print('Waiting workbench activating to finish.')
 
-        def check_attr(wb, name):
-            if hasattr(wb, name):
-                window = Gui.getMainWindow()
-                storage = window.extui['storage']
-                list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
-                rebuild_panels()
- 
-        QtCore.QTimer.singleShot(150, lambda: check_attr(wb, '__Workbench__'))
+
+    def on_workbench_activated():
+        if is_workbench_loaded():
+            wb = Gui.activeWorkbench()
+            window = Gui.getMainWindow()
+            if not hasattr(window, "extui") or "storage" not in window.extui:
+                return
+            storage = window.extui["storage"]
+            list_wb_tools(storage, wb.name() or DEFAULT_WORKBENCH)
+            rebuild_panels()
+
 
     window = Gui.getMainWindow()
+    
+    def run(timer):
+        is_ready = is_workbench_loaded()
 
-    def try_create_menu():
-        create_menu(window)
+        if is_ready:
+            timer.stop()
+            timer.deleteLater()
+            print('Ok, all startup processes are finished.')
+            create_menu(window)
+            sys.excepthook = global_exception_handler
+            return
 
-    QtCore.QTimer.singleShot(150, try_create_menu)
-
-    sys.excepthook = global_exception_handler
-
+    _timer = QtCore.QTimer()
+    _timer.timeout.connect(lambda: run(_timer))
+    _timer.start(150)
 
 setup_extui()

@@ -31,6 +31,7 @@ def list_wb_tools(storage, wb_name: str):
     window = Gui.getMainWindow()
 
     try:
+        print('original_WB', original_wb)
         original_wb = Gui.activeWorkbench().name()
     except:
         original_wb = DEFAULT_WORKBENCH
@@ -51,3 +52,4 @@ def list_wb_tools(storage, wb_name: str):
     Gui.activateWorkbench(original_wb)
     storage.wbtools[wb_name] = actions
     return actions
+    
