@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>ExtUI</name>
+  <description>Additional UI tools</description>
+  <version>0.1.0</version>
+  <date>2026-04-08</date>
+  <maintainer email="yet-another-super-mail@ya.ru">Vovk D</maintainer>
+  <author email="yet-another-super-mail@ya.ru">Vovk D</author>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <url type="repository" branch="main">https://github.com/vovkd/freecad-extui</url>
+  <url type="readme">https://github.com/vovkd/freecad-extui/blob/main/README.md</url>
+  <url type="documentation">https://github.com/GS90/addFC/tree/main/doc</url>
+  <icon>icon.svg</icon>
+  <content>
+    <workbench>
+      <classname>ExtUI</classname>
+      <subdirectory>./addon/ExtUI</subdirectory>
+      <freecadmin>1.0.0</freecadmin>
+      <!-- tags -->
+      <tag>UI</tag>
+      <tag>library</tag>
+    </workbench>
+  </content>
+</package>
