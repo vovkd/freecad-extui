@@ -8,7 +8,7 @@ def setup_extui():
     import FreeCADGui as Gui
     from FreeCAD import Console
 
-    from PySide import QtWidgets, QtCore, QtGui
+    from PySide import QtCore
 
     import utils
     import store
